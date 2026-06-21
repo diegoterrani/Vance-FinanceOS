@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
 const TABLE_NAME = 'app_bootstrap_snapshots';
-const SNAPSHOT_KEY = process.env.SUPABASE_BOOTSTRAP_KEY || 'production';
 
 interface RequestLike {
   method?: string;
@@ -37,15 +36,16 @@ export default async function handler(req: RequestLike, res: ResponseLike) {
   }
 
   const supabase = getSupabaseClient();
+  const snapshotKey = process.env.SUPABASE_BOOTSTRAP_KEY;
 
-  if (!supabase) {
+  if (!supabase || !snapshotKey) {
     return res.status(204).end();
   }
 
   const { data, error } = await supabase
     .from(TABLE_NAME)
     .select('payload, updated_at')
-    .eq('key', SNAPSHOT_KEY)
+    .eq('key', snapshotKey)
     .maybeSingle();
 
   if (error) {

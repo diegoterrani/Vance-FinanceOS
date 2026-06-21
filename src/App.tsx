@@ -26,7 +26,7 @@ export default function App() {
   const [snapshotReady, setSnapshotReady] = useState(false);
 
   // Core application state
-  const [appState, setAppState] = useState<AppState>(DEFAULT_APP_SNAPSHOT.appState);
+  const [appSettings, setAppSettings] = useState<AppState>(DEFAULT_APP_SNAPSHOT.appState);
 
   // Database lists state
   const [transactions, setTransactions] = useState<Transaction[]>(DEFAULT_APP_SNAPSHOT.transactions);
@@ -46,7 +46,7 @@ export default function App() {
         return;
       }
 
-      setAppState(snapshot.appState);
+      setAppSettings(snapshot.appState);
       setTransactions(snapshot.transactions);
       setAlerts(snapshot.alerts);
       setUsers(snapshot.users);
@@ -65,14 +65,14 @@ export default function App() {
 
   // Sync state setting properties on document Root for dark/light mode switches
   const handleToggleTheme = () => {
-    const nextTheme = appState.theme === 'dark' ? 'light' : 'dark';
+    const nextTheme = appSettings.theme === 'dark' ? 'light' : 'dark';
     handleUpdateState({ theme: nextTheme });
   };
 
   useEffect(() => {
     const root = document.documentElement;
-    root.setAttribute('data-theme', appState.theme);
-  }, [appState.theme]);
+    root.setAttribute('data-theme', appSettings.theme);
+  }, [appSettings.theme]);
 
   useEffect(() => {
     if (!snapshotReady) {
@@ -80,7 +80,7 @@ export default function App() {
     }
 
     persistAppSnapshot({
-      appState,
+      appState: appSettings,
       transactions,
       alerts,
       users,
@@ -88,11 +88,11 @@ export default function App() {
       webhookLogs,
       auditLogs,
     });
-  }, [snapshotReady, appState, transactions, alerts, users, pluggyAccounts, webhookLogs, auditLogs]);
+  }, [snapshotReady, appSettings, transactions, alerts, users, pluggyAccounts, webhookLogs, auditLogs]);
 
   // Partial settings updator
   const handleUpdateState = (newState: Partial<AppState>) => {
-    setAppState(prev => ({ ...prev, ...newState }));
+    setAppSettings(prev => ({ ...prev, ...newState }));
   };
 
   // Dispatchers
@@ -196,7 +196,7 @@ export default function App() {
 
   return (
     <div className={`theme-transition min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] ${
-      appState.density === 'compact' ? 'compact-density' : appState.density === 'comfortable' ? 'comfortable-density' : ''
+      appSettings.density === 'compact' ? 'compact-density' : appSettings.density === 'comfortable' ? 'comfortable-density' : ''
     }`}>
       
       {/* 1. LATERAL BAR SHELL */}
@@ -226,12 +226,12 @@ export default function App() {
         {/* Global sticky header widget */}
         <Header
           currentView={currentView}
-          theme={appState.theme}
+          theme={appSettings.theme}
           onToggleTheme={handleToggleTheme}
           activeAlerts={alerts}
           onResolveAlert={handleResolveAlert}
           onNavigate={setCurrentView}
-          companyName={appState.selectedCompany.nomeFantasia}
+          companyName={appSettings.selectedCompany.nomeFantasia}
           onToggleMobileMenu={() => setMobileMenuOpen(!mobileMenuOpen)}
         />
 
@@ -276,7 +276,7 @@ export default function App() {
 
           {currentView === 'settings' && (
             <Settings
-              appState={appState}
+              appState={appSettings}
               onUpdateState={handleUpdateState}
               users={users}
               onAddUser={handleAddUser}
