@@ -3,6 +3,18 @@ import { Alert, AppState, AuditLog, PluggyAccount, Transaction, User, WebhookLog
 const STORAGE_KEY = 'vance-financeos.snapshot';
 const REMOTE_BOOTSTRAP_PATH = import.meta.env.VITE_BOOTSTRAP_API_PATH || '/api/bootstrap';
 
+const isoDateDaysAgo = (daysAgo: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - daysAgo);
+  return date.toISOString().split('T')[0];
+};
+
+const isoTimestampHoursAgo = (hoursAgo: number) => {
+  const date = new Date();
+  date.setHours(date.getHours() - hoursAgo);
+  return date.toISOString();
+};
+
 export interface AppSnapshot {
   appState: AppState;
   transactions: Transaction[];
@@ -38,7 +50,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'inflow',
       status: 'matched',
       value: 18200.0,
-      date: '2026-06-21',
+      date: isoDateDaysAgo(0),
       reference: 'PIX EM ENTRADA RECORRENTE',
       category: 'Contratos Clientes',
       score: 0.98,
@@ -51,7 +63,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'outflow',
       status: 'matched',
       value: -4400.0,
-      date: '2026-06-20',
+      date: isoDateDaysAgo(1),
       reference: 'AWS HOSTING CLOUD RUN DEBITO',
       category: 'Sistemas e Softwares',
       score: 0.91,
@@ -64,7 +76,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'inflow',
       status: 'pending',
       value: 12500.0,
-      date: '2026-06-21',
+      date: isoDateDaysAgo(0),
       reference: 'TED STRIPE PAYMENTS INBOUND',
       category: 'Contratos Clientes',
       score: 0.78,
@@ -77,7 +89,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'outflow',
       status: 'matched',
       value: -10300.0,
-      date: '2026-06-19',
+      date: isoDateDaysAgo(2),
       reference: 'PAGAMENTO GUIA SIMPLES DAS SFN',
       category: 'Impostos e Contribuições',
       score: 0.99,
@@ -90,7 +102,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'outflow',
       status: 'pending',
       value: -8500.0,
-      date: '2026-06-18',
+      date: isoDateDaysAgo(3),
       reference: 'REMUNERACAO PROLABORE MENSAL',
       category: 'Folha de Pagamento',
       score: 0.65,
@@ -103,7 +115,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       direction: 'inflow',
       status: 'matched',
       value: 1840.0,
-      date: '2026-06-17',
+      date: isoDateDaysAgo(4),
       reference: 'CDI XP INVESTIMENTOS CDB LIQUIDO',
       category: 'Juros e Rendimentos',
       score: 0.95,
@@ -117,7 +129,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       level: 'critical',
       status: 'active',
       category: 'Open Finance',
-      date: '2026-06-21',
+      date: isoDateDaysAgo(0),
     },
     {
       id: 'al-2',
@@ -126,7 +138,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       level: 'high',
       status: 'active',
       category: 'Faturamento',
-      date: '2026-06-21',
+      date: isoDateDaysAgo(0),
     },
     {
       id: 'al-3',
@@ -135,7 +147,7 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
       level: 'info',
       status: 'active',
       category: 'Open Finance',
-      date: '2026-06-21',
+      date: isoDateDaysAgo(0),
     },
   ],
   users: [
@@ -199,9 +211,9 @@ export const DEFAULT_APP_SNAPSHOT: AppSnapshot = {
     { id: 'wh-3', url: 'https://meu-sistema-erp.com/webhooks/vance', event: 'cnab.processed', status: 'failed', timestamp: '20/06 09:12', duration: 320, statusCode: 502 },
   ],
   auditLogs: [
-    { id: 'aud-1', userId: 'u-1', userName: 'Diego Terrani', action: 'CONCILIAÇÃO_AUTO', details: 'Aprovação massiva de 4 lançamentos via CNAB retornado', timestamp: '2026-06-21T14:10:00Z', ip: '177.34.21.198' },
-    { id: 'aud-2', userId: 'u-1', userName: 'Diego Terrani', action: 'ATUALIZAR_CERTIFICADO', details: 'Arquivo de faturamento certificado A1 enviado (.pfx)', timestamp: '2026-06-21T12:00:00Z', ip: '177.34.21.198' },
-    { id: 'aud-3', userId: 'u-2', userName: 'Mariana Santos', action: 'OPEN_FINANCE_SYNC', details: 'Forçado sincronismo manual nas agências de XP Corp', timestamp: '2026-06-20T18:30:00Z', ip: '189.44.12.22' },
+    { id: 'aud-1', userId: 'u-1', userName: 'Diego Terrani', action: 'CONCILIAÇÃO_AUTO', details: 'Aprovação massiva de 4 lançamentos via CNAB retornado', timestamp: isoTimestampHoursAgo(8), ip: '177.34.21.198' },
+    { id: 'aud-2', userId: 'u-1', userName: 'Diego Terrani', action: 'ATUALIZAR_CERTIFICADO', details: 'Arquivo de faturamento certificado A1 enviado (.pfx)', timestamp: isoTimestampHoursAgo(10), ip: '177.34.21.198' },
+    { id: 'aud-3', userId: 'u-2', userName: 'Mariana Santos', action: 'OPEN_FINANCE_SYNC', details: 'Forçado sincronismo manual nas agências de XP Corp', timestamp: isoTimestampHoursAgo(28), ip: '189.44.12.22' },
   ],
 };
 
