@@ -184,6 +184,16 @@ export default function App() {
 
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
 
+  if (!snapshotReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-app)] text-[var(--text-primary)]">
+        <div className="glass-card px-6 py-4 text-sm text-[var(--text-secondary)]">
+          Carregando ambiente financeiro...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`theme-transition min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] ${
       appState.density === 'compact' ? 'compact-density' : appState.density === 'comfortable' ? 'comfortable-density' : ''

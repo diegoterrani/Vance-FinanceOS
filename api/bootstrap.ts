@@ -3,6 +3,17 @@ import { createClient } from '@supabase/supabase-js';
 const TABLE_NAME = 'app_bootstrap_snapshots';
 const SNAPSHOT_KEY = process.env.SUPABASE_BOOTSTRAP_KEY || 'production';
 
+interface RequestLike {
+  method?: string;
+}
+
+interface ResponseLike {
+  setHeader(name: string, value: string): void;
+  status(code: number): ResponseLike;
+  json(payload: unknown): ResponseLike;
+  end(): ResponseLike;
+}
+
 function getSupabaseClient() {
   const supabaseUrl = process.env.SUPABASE_URL;
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -19,7 +30,7 @@ function getSupabaseClient() {
   });
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: RequestLike, res: ResponseLike) {
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     return res.status(405).json({ error: 'Method not allowed' });
