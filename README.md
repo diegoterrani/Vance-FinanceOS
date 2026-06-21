@@ -37,7 +37,7 @@ Use o arquivo `.env.example` como referência.
 ## Setup do Supabase
 
 1. Crie um projeto no Supabase.
-2. Rode a migration em `supabase/migrations/20260621230000_create_app_bootstrap_snapshots.sql`.
+2. Execute a migration em `supabase/migrations/20260621230000_create_app_bootstrap_snapshots.sql`.
 3. Insira ao menos uma linha na tabela `public.app_bootstrap_snapshots` com:
    - `key = 'production'` ou o valor definido em `SUPABASE_BOOTSTRAP_KEY`
    - `payload = <snapshot JSON válido da aplicação>`
