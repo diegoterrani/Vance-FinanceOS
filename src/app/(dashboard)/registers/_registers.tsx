@@ -1,0 +1,719 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Transaction, TransactionDirection } from '@/lib/types';
+import CurrencyDisplay from '@/components/finance/CurrencyDisplay';
+import { formatDate } from '@/lib/formatters';
+import { 
+  Plus, Trash2, Calendar, Banknote, Building, Tag, Check, ArrowUpRight, 
+  ArrowDownRight, Trash, AlertCircle, ShoppingBag, Landmark, ArrowRight,
+  ClipboardList
+} from 'lucide-react';
+
+interface RegistryItem {
+  id: string;
+  description: string;
+  direction: TransactionDirection;
+  value: number;
+  dueDate: string;
+  bank: string;
+  category: string;
+  recurrence: 'single' | 'monthly' | 'yearly';
+  status: 'pending' | 'realized';
+  documentNumber?: string;
+}
+
+interface RegistersProps {
+  transactions: Transaction[];
+  onAddTransaction: (tx: Transaction) => void;
+}
+
+const INITIAL_REGISTERS: RegistryItem[] = [
+  {
+    id: 'reg-1',
+    description: 'CONTRATO ANUAL - GRUPO ALMEIDA',
+    direction: 'inflow',
+    value: 24500.00,
+    dueDate: '2026-06-25',
+    bank: 'Itaú Unibanco S.A.',
+    category: 'Contratos Clientes',
+    recurrence: 'monthly',
+    status: 'pending',
+    documentNumber: 'NF-6782'
+  },
+  {
+    id: 'reg-2',
+    description: 'DIÁRIAS SERVIÇO CONSULTORIA JÚNIOR',
+    direction: 'inflow',
+    value: 4800.00,
+    dueDate: '2026-06-28',
+    bank: 'XP Investimentos',
+    category: 'Honorários Extra',
+    recurrence: 'single',
+    status: 'pending',
+    documentNumber: 'NF-6789'
+  },
+  {
+    id: 'reg-3',
+    description: 'RESERVA SALDO RETIDO STRIPE OUTBOUND',
+    direction: 'inflow',
+    value: 3950.00,
+    dueDate: '2026-06-30',
+    bank: 'Itaú Unibanco S.A.',
+    category: 'Contratos Clientes',
+    recurrence: 'single',
+    status: 'pending'
+  },
+  {
+    id: 'reg-4',
+    description: 'RENOVAÇÃO LICENÇAS MICROSOFT 365',
+    direction: 'outflow',
+    value: -1280.00,
+    dueDate: '2026-06-24',
+    bank: 'Itaú Unibanco S.A.',
+    category: 'Sistemas e Softwares',
+    recurrence: 'monthly',
+    status: 'pending',
+    documentNumber: 'BOL-5532'
+  },
+  {
+    id: 'reg-5',
+    description: 'FORNECEDOR LOGÍSTICA SÃO PAULO',
+    direction: 'outflow',
+    value: -3100.00,
+    dueDate: '2026-06-25',
+    bank: 'Banco do Brasil S.A.',
+    category: 'Fornecedores e Logística',
+    recurrence: 'single',
+    status: 'pending',
+    documentNumber: 'BOL-7821'
+  },
+  {
+    id: 'reg-6',
+    description: 'PARCELAMENTO SIMPLES NACIONAL 04/12',
+    direction: 'outflow',
+    value: -4200.00,
+    dueDate: '2026-06-28',
+    bank: 'Banco do Brasil S.A.',
+    category: 'Impostos e Contribuições',
+    recurrence: 'monthly',
+    status: 'pending',
+    documentNumber: 'GPS-0412'
+  }
+];
+
+export default function Registers({ transactions, onAddTransaction }: RegistersProps) {
+  const [registryList, setRegistryList] = useState<RegistryItem[]>(INITIAL_REGISTERS);
+  
+  // Tab control: 'all' | 'inflow' | 'outflow'
+  const [filterType, setFilterType] = useState<'all' | 'inflow' | 'outflow'>('all');
+  
+  // Registration Form States
+  const [description, setDescription] = useState('');
+  const [direction, setDirection] = useState<TransactionDirection>('inflow');
+  const [value, setValue] = useState('');
+  const [dueDate, setDueDate] = useState('2026-06-25');
+  const [bank, setBank] = useState('Itaú Unibanco S.A.');
+  const [category, setCategory] = useState('Contratos Clientes');
+  const [recurrence, setRecurrence] = useState<'single' | 'monthly' | 'yearly'>('single');
+  const [documentNumber, setDocumentNumber] = useState('');
+  
+  const [showForm, setShowForm] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+  // Helper date generators for 1-click presets based on mock timeline base date '2026-06-21'
+  const getOffsetDate = (days: number): string => {
+    const baseline = new Date('2026-06-21');
+    baseline.setDate(baseline.getDate() + days);
+    return baseline.toISOString().split('T')[0];
+  };
+
+  const getEndOfMonthDate = (): string => {
+    const baseline = new Date('2026-06-21');
+    const endOfMonth = new Date(baseline.getFullYear(), baseline.getMonth() + 1, 0);
+    return endOfMonth.toISOString().split('T')[0];
+  };
+
+  const getNextMonthFifth = (): string => {
+    const baseline = new Date('2026-06-21');
+    const nextMonth = new Date(baseline.getFullYear(), baseline.getMonth() + 1, 5);
+    return nextMonth.toISOString().split('T')[0];
+  };
+
+  // Suggested Categories based on Direction
+  const categoriesInflow = ['Contratos Clientes', 'Juros e Rendimentos', 'Honorários Extra', 'Aportes Sócio'];
+  const categoriesOutflow = ['Sistemas e Softwares', 'Fornecedores e Logística', 'Folha de Pagamento', 'Impostos e Contribuições', 'Infraestrutura', 'Marketing e Vendas'];
+
+  // Change default category when direction changes
+  const handleDirectionChange = (dir: TransactionDirection) => {
+    setDirection(dir);
+    setCategory(dir === 'inflow' ? 'Contratos Clientes' : 'Sistemas e Softwares');
+  };
+
+  // Stats Calculations
+  const activeItems = registryList.filter(item => item.status === 'pending');
+  
+  const totalReceivables = activeItems
+    .filter(item => item.direction === 'inflow')
+    .reduce((sum, item) => sum + item.value, 0);
+  
+  const totalPayables = activeItems
+    .filter(item => item.direction === 'outflow')
+    .reduce((sum, item) => sum + Math.abs(item.value), 0);
+  
+  const netProjection = totalReceivables - totalPayables;
+
+  // Add Item to registration list
+  const handleCreateRegistry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!description.trim() || !value || Number(value) <= 0) return;
+
+    const numericValue = Number(value);
+    // Standardizing sign: positive for inflow, negative for outflow
+    const finalValue = direction === 'inflow' ? numericValue : -numericValue;
+
+    const newItem: RegistryItem = {
+      id: `reg-${Date.now()}`,
+      description: description.toUpperCase().trim(),
+      direction,
+      value: finalValue,
+      dueDate,
+      bank,
+      category,
+      recurrence,
+      status: 'pending',
+      documentNumber: documentNumber.trim() || undefined
+    };
+
+    setRegistryList(prev => [newItem, ...prev]);
+    
+    // Reset form
+    setDescription('');
+    setValue('');
+    setDocumentNumber('');
+    setShowForm(false);
+    
+    triggerFeedback('Lançamento previsto cadastrado com sucesso!');
+  };
+
+  // Delete Registry Item
+  const handleDeleteItem = (id: string) => {
+    setRegistryList(prev => prev.filter(item => item.id !== id));
+    triggerFeedback('Lançamento removido.');
+  };
+
+  // Launch expected item into core banking transactions (Efetivar)
+  const handleLaunchToBank = (item: RegistryItem) => {
+    const tx: Transaction = {
+      id: `tx-reg-${Date.now()}`,
+      description: item.description,
+      bank: item.bank,
+      bankCode: item.bank === 'Itaú Unibanco S.A.' ? '341' : item.bank === 'Banco do Brasil S.A.' ? '001' : '102',
+      direction: item.direction,
+      status: 'pending', // Becomes pending in core reconciliation list
+      value: item.value,
+      date: item.dueDate,
+      reference: item.documentNumber || 'CADASTRO PREVISTO',
+      category: item.category,
+      score: 0.99 // High confidence as it matches our registered data exactly
+    };
+
+    onAddTransaction(tx);
+
+    // Update state to realized
+    setRegistryList(prev => prev.map(r => {
+      if (r.id === item.id) {
+        return { ...r, status: 'realized' };
+      }
+      return r;
+    }));
+
+    triggerFeedback(`Lançamento realizado! "${item.description}" enviado para a Fila de Conciliação.`);
+  };
+
+  const triggerFeedback = (msg: string) => {
+    setFeedbackMessage(msg);
+    setTimeout(() => {
+      setFeedbackMessage(null);
+    }, 4000);
+  };
+
+  // Filter list
+  const filteredItems = registryList.filter(item => {
+    if (filterType === 'inflow' && item.direction !== 'inflow') return false;
+    if (filterType === 'outflow' && item.direction !== 'outflow') return false;
+    return true;
+  });
+
+  return (
+    <div className="space-y-6">
+      
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+        <div>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">Cadastros Financeiros (AP/AR)</h1>
+          <p className="text-xs text-[var(--text-secondary)]">Gerencie contas a pagar e a receber e realize integrações diretas na bancária</p>
+        </div>
+        
+        <button
+          onClick={() => setShowForm(!showForm)}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-[var(--color-brand-light)] text-white text-xs font-semibold cursor-pointer transition-all shadow-md self-stretch sm:self-auto"
+        >
+          {showForm ? 'Fechar Formuário' : 'Novo Lançamento Previsto'}
+          <Plus size={14} className={`transition-transform duration-300 ${showForm ? 'rotate-45' : ''}`} />
+        </button>
+      </div>
+
+      {/* Success Feedback Banner */}
+      {feedbackMessage && (
+        <div className="p-3 bg-teal-500/10 border border-teal-500/20 rounded-lg text-teal-500 text-xs font-medium animate-fade-in flex items-center gap-2">
+          <Check size={14} className="stroke-[3]" />
+          <span>{feedbackMessage}</span>
+        </div>
+      )}
+
+      {/* Form: Register New Inflow/Outflow */}
+      {showForm && (
+        <div className="p-5 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] animate-fade-in space-y-4 shadow-sm">
+          <div className="border-b border-[var(--border-soft)] pb-3 flex justify-between items-center">
+            <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-1.5">
+              <ClipboardList size={15} className="text-brand" />
+              Preencher dados do lançamento esperado
+            </h3>
+            <span className="text-[10px] text-[var(--text-muted)]">Crie previsões para o fluxo de caixa</span>
+          </div>
+
+          <form onSubmit={handleCreateRegistry} className="space-y-4 text-xs">
+            {/* Split row: Direction selection */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Tipo de Registro</label>
+                <div className="flex bg-[var(--bg-input)] rounded-lg p-0.5 border border-[var(--border-soft)] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => handleDirectionChange('inflow')}
+                    className={`flex-1 py-1.5 rounded-md text-center transition-all ${
+                      direction === 'inflow'
+                        ? 'bg-brand text-white font-semibold shadow'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    A Receber (Entrada / Inflow)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDirectionChange('outflow')}
+                    className={`flex-1 py-1.5 rounded-md text-center transition-all ${
+                      direction === 'outflow'
+                        ? 'bg-red-500/15 text-red-500 border border-red-500/25 font-semibold'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    A Pagar (Saída / Outflow)
+                  </button>
+                </div>
+              </div>
+
+              {/* Value Input */}
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Valor do Lançamento (R$)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 font-semibold text-[var(--text-muted)]">R$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    required
+                    value={value}
+                    onChange={(e) => setValue(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono font-semibold"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Row: Description & Document Number */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Descrição do Fluxo</label>
+                <input
+                  type="text"
+                  placeholder="EX: PAGAMENTO DE CONSULTORIA, VENDA SERVIÇOS XYZ..."
+                  required
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Num. Documento / Recibo</label>
+                <input
+                  type="text"
+                  placeholder="EX: NF-1234, BOL-9923 (Opcional)"
+                  value={documentNumber}
+                  onChange={(e) => setDocumentNumber(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                />
+              </div>
+            </div>
+
+            {/* Row: Bank, Category, Due date, Recurrence */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Banco de Destino</label>
+                <select
+                  value={bank}
+                  onChange={(e) => setBank(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                >
+                  <option value="Itaú Unibanco S.A.">Itaú Unibanco S.A. (341)</option>
+                  <option value="Banco do Brasil S.A.">Banco do Brasil S.A. (001)</option>
+                  <option value="XP Investimentos">XP Investimentos (102)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Categoria Analítica</label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                >
+                  {direction === 'inflow' 
+                    ? categoriesInflow.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                    : categoriesOutflow.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                  }
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Data Vencimento</label>
+                <div className="relative">
+                  <input
+                    type="date"
+                    required
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    className="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono"
+                  />
+                  <Calendar size={13} className="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none" />
+                </div>
+                
+                {/* Previsão de Datas em 1-clique */}
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getOffsetDate(0))}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getOffsetDate(0)
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`Hoje: ${getOffsetDate(0)}`}
+                  >
+                    Hoje
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getOffsetDate(1))}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getOffsetDate(1)
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`Amanhã: ${getOffsetDate(1)}`}
+                  >
+                    Amanhã
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getOffsetDate(5))}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getOffsetDate(5)
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`+5 Dias: ${getOffsetDate(5)}`}
+                  >
+                    +5D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getOffsetDate(15))}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getOffsetDate(15)
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`+15 Dias: ${getOffsetDate(15)}`}
+                  >
+                    +15D
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getEndOfMonthDate())}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getEndOfMonthDate()
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`Último dia do mês: ${getEndOfMonthDate()}`}
+                  >
+                    Fim do Mês
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDueDate(getNextMonthFifth())}
+                    className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
+                      dueDate === getNextMonthFifth()
+                        ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
+                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                    }`}
+                    title={`Dia 5 do próximo mês: ${getNextMonthFifth()}`}
+                  >
+                    Regra D+5
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-[var(--text-secondary)] uppercase tracking-wider mb-1.5">Recorrência do Lançamento</label>
+                <select
+                  value={recurrence}
+                  onChange={(e) => setRecurrence(e.target.value as any)}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                >
+                  <option value="single">Único</option>
+                  <option value="monthly">Mensal Recorrente</option>
+                  <option value="yearly">Anual Recorrente</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(false)}
+                className="px-4 py-2 border border-[var(--border-soft)] hover:bg-[var(--bg-card-hover)] text-[var(--text-secondary)] rounded-lg font-semibold transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-brand text-white hover:bg-[var(--color-brand-light)] rounded-lg font-semibold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+              >
+                <Plus size={13} className="stroke-[3]" /> Confirmar Cadastro
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Stats Summary Bento (No broken text on wide view) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        {/* receivables card */}
+        <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] flex flex-col justify-between min-h-[96px] relative overflow-hidden group">
+          <div className="flex justify-between items-start text-[var(--text-secondary)] text-[11px] uppercase tracking-wider font-semibold">
+            <span>Previsão de Recebíveis</span>
+            <span className="p-1 rounded-full bg-green-500/10 text-green-500">
+              <ArrowUpRight size={13} />
+            </span>
+          </div>
+          <div className="my-1 text-ellipsis overflow-hidden whitespace-nowrap">
+            <CurrencyDisplay value={totalReceivables} variant="large" />
+          </div>
+          <p className="text-[10px] text-green-500/80 font-medium">Contas e faturamentos a receber ativos</p>
+        </div>
+
+        {/* payables card */}
+        <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] flex flex-col justify-between min-h-[96px] relative overflow-hidden group">
+          <div className="flex justify-between items-start text-[var(--text-secondary)] text-[11px] uppercase tracking-wider font-semibold">
+            <span>Previsão de Compromissos</span>
+            <span className="p-1 rounded-full bg-red-500/10 text-red-500">
+              <ArrowDownRight size={13} />
+            </span>
+          </div>
+          <div className="my-1 text-ellipsis overflow-hidden whitespace-nowrap">
+            <CurrencyDisplay value={-totalPayables} variant="large" />
+          </div>
+          <p className="text-[10px] text-red-500/80 font-medium">Contas e guias tributárias a pagar</p>
+        </div>
+
+        {/* balance net card */}
+        <div className={`p-4 rounded-xl border flex flex-col justify-between min-h-[96px] relative overflow-hidden ${
+          netProjection >= 0 ? 'bg-brand/5 border-brand/20' : 'bg-red-500/5 border-red-500/20'
+        }`}>
+          <div className="flex justify-between items-start text-[var(--text-secondary)] text-[11px] uppercase tracking-wider font-semibold">
+            <span>Resultado Projetado</span>
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
+              netProjection >= 0 ? 'bg-brand/10 text-brand' : 'bg-red-500/15 text-red-500'
+            }`}>
+              {netProjection >= 0 ? 'Excedente' : 'Déficit'}
+            </span>
+          </div>
+          <div className="my-1 text-ellipsis overflow-hidden whitespace-nowrap">
+            <CurrencyDisplay value={netProjection} variant="large" colorize />
+          </div>
+          <p className="text-[10px] text-[var(--text-muted)] font-mono">Lançamentos agendados para liquidação</p>
+        </div>
+
+      </div>
+
+      {/* Tab select & Table */}
+      <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] space-y-4">
+        
+        {/* Table Filter Tabs */}
+        <div className="flex justify-between items-center border-b border-[var(--border-soft)] pb-3">
+          <div className="flex gap-4 text-xs font-semibold">
+            <button
+              onClick={() => setFilterType('all')}
+              className={`pb-3 relative transition-all ${
+                filterType === 'all' ? 'text-brand border-b-2 border-brand' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              Todos ({registryList.length})
+            </button>
+            <button
+              onClick={() => setFilterType('inflow')}
+              className={`pb-3 relative transition-all ${
+                filterType === 'inflow' ? 'text-brand border-b-2 border-brand font-bold' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              A Receber ({registryList.filter(r => r.direction === 'inflow').length})
+            </button>
+            <button
+              onClick={() => setFilterType('outflow')}
+              className={`pb-3 relative transition-all ${
+                filterType === 'outflow' ? 'text-brand border-b-2 border-brand font-bold' : 'text-[var(--text-muted)] hover:text-[var(--text-secondary)]'
+              }`}
+            >
+              A Pagar ({registryList.filter(r => r.direction === 'outflow').length})
+            </button>
+          </div>
+          
+          <span className="text-[10px] text-[var(--text-secondary)] font-medium">
+            Mostrando {filteredItems.length} registros cadastrados
+          </span>
+        </div>
+
+        {/* Master Registry Table */}
+        <div className="overflow-x-auto">
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-12 text-[var(--text-muted)] text-xs flex flex-col items-center justify-center space-y-2">
+              <AlertCircle size={28} className="text-[var(--text-muted)] opacity-60" />
+              <p className="font-semibold">Nenhum registro encontrado nesta categoria.</p>
+              <p className="text-[10px]">Utilize o botão "Novo Lançamento Previsto" para cadastrar.</p>
+            </div>
+          ) : (
+            <table className="w-full dense-table text-left border-collapse text-xs">
+              <thead>
+                <tr>
+                  <th className="py-2.5 px-3">Dados Cadastrais</th>
+                  <th className="py-2.5 px-3">Banco</th>
+                  <th className="py-2.5 px-3">Vencimento</th>
+                  <th className="py-2.5 px-3">Recorrência</th>
+                  <th className="py-2.5 px-3">Recibo/Documento</th>
+                  <th className="py-2.5 px-3 text-right">Valor Projetado</th>
+                  <th className="py-2.5 px-3 text-center">Integração</th>
+                  <th className="py-2.5 px-3 text-right">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-soft)]">
+                {filteredItems.map((item) => {
+                  const isPending = item.status === 'pending';
+                  
+                  return (
+                    <tr 
+                      key={item.id} 
+                      className={`hover:bg-[var(--bg-card-hover)] transition-colors ${
+                        !isPending ? 'opacity-65 bg-black/5' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${item.direction === 'inflow' ? 'bg-green-500' : 'bg-red-500'}`}></span>
+                          <div>
+                            <p className="font-semibold text-[var(--text-primary)] max-w-xs truncate" title={item.description}>
+                              {item.description}
+                            </p>
+                            <p className="text-[10px] text-[var(--text-muted)]">{item.category}</p>
+                          </div>
+                        </div>
+                      </td>
+                      
+                      <td className="py-3 px-3 text-[var(--text-secondary)] font-medium">
+                        {item.bank}
+                      </td>
+                      
+                      <td className="py-3 px-3 font-mono text-xs">
+                        {formatDate(item.dueDate)}
+                      </td>
+                      
+                      <td className="py-3 px-3 text-[var(--text-secondary)]">
+                        {item.recurrence === 'single' ? 'Único' : item.recurrence === 'monthly' ? 'Mensal' : 'Anual'}
+                      </td>
+                      
+                      <td className="py-3 px-3">
+                        {item.documentNumber ? (
+                          <span className="font-mono text-[10px] bg-[var(--bg-input)] px-1.5 py-0.5 rounded border border-[var(--border-soft)] text-[var(--text-primary)]">
+                            {item.documentNumber}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-muted)] font-mono">—</span>
+                        )}
+                      </td>
+                      
+                      <td className="py-3 px-3 text-right font-semibold">
+                        <CurrencyDisplay value={item.value} colorize />
+                      </td>
+
+                      <td className="py-3 px-3 text-center">
+                        {isPending ? (
+                          <button
+                            onClick={() => handleLaunchToBank(item)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20 hover:border-brand/35 rounded-lg transition-all cursor-pointer truncate"
+                            title="Lançará esta conta no painel de conciliação ativa"
+                          >
+                            <Check size={11} className="stroke-[3]" /> Lançar Extrato
+                          </button>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold font-mono bg-green-500/10 text-green-500 border border-green-500/15 rounded uppercase">
+                            Integrado
+                          </span>
+                        )}
+                      </td>
+                      
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title="Remover Cadastro"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {/* Info notice block to secure layout */}
+      <div className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl text-[var(--text-muted)] text-[11px] leading-relaxed flex items-start gap-2.5">
+        <AlertCircle size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
+        <div>
+          <p className="font-bold text-[var(--text-secondary)] mb-0.5">Segurança Síncrona Vance:</p>
+          <p>
+            O módulo de cadastros financeiros mapeia as provisões operacionais. Ao clicar em <strong className="text-brand">"Lançar Extrato"</strong>, o registro é transmitido em tempo real para a fila de conciliação bancária de sua agência, permitindo o batimento autônomo imediato via IA com o retorno CNAB.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  );
+}
