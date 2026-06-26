@@ -1,91 +1,69 @@
-'use client';
-
-import React from 'react';
+import React, { useState } from 'react';
+import { Image } from 'lucide-react';
 
 interface LogoProps {
   className?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   showText?: boolean;
+  src?: string;
 }
 
-export default function Logo({ className = '', size = 'md', showText = true }: LogoProps) {
-  // Dimensions based on size preset
-  const iconSize = {
-    sm: { width: 28, height: 28 },
-    md: { width: 36, height: 36 },
-    lg: { width: 48, height: 48 },
-    xl: { width: 64, height: 64 }
+export default function Logo({ 
+  className = '', 
+  size = 'md', 
+  showText = true,
+  src = '/logo-vance.png' // Caminho padrão preparado para receber a imagem do logo
+}: LogoProps) {
+  const [hasError, setHasError] = useState(false);
+
+  // Dimensions based on size preset for the logo container/image
+  const dimensions = {
+    sm: { width: 'w-8', height: 'h-8', iconSize: 14 },
+    md: { width: 'w-32', height: 'h-10', iconSize: 18 },
+    lg: { width: 'w-44', height: 'h-12', iconSize: 22 },
+    xl: { width: 'w-56', height: 'h-16', iconSize: 28 }
   }[size];
 
-  const textSize = {
-    sm: 'text-lg tracking-wider font-semibold',
-    md: 'text-2xl tracking-widest font-bold',
-    lg: 'text-3xl tracking-widest font-extrabold',
-    xl: 'text-4xl tracking-widest font-black'
-  }[size];
+  // For collapsed state (showText is false), we want a compact square/circle logo
+  const isCompact = !showText || size === 'sm';
 
   return (
-    <div className={`flex items-center gap-3 select-none ${className}`}>
-      {/* VANCE GROWTH & HEART ICON */}
-      <svg
-        width={iconSize.width}
-        height={iconSize.height}
-        viewBox="0 0 100 100"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="text-brand flex-shrink-0"
-      >
-        {/* Draw the custom 'V' with a heart and up-arrow symbol */}
-        {/* Rounded left bar of the V */}
-        <rect
-          x="28"
-          y="28"
-          width="12"
-          height="32"
-          rx="6"
-          transform="rotate(-25 28 28)"
-          fill="currentColor"
+    <div className={`flex items-center justify-start select-none ${className}`} id="vance-logo-container">
+      {!hasError ? (
+        <img
+          src={src}
+          alt="VANCE Logo"
+          referrerPolicy="no-referrer"
+          onError={() => setHasError(true)}
+          className={`object-contain transition-all duration-300 ${
+            isCompact ? 'w-8 h-8' : `${dimensions.width} ${dimensions.height}`
+          }`}
+          id="vance-logo-img"
         />
-        
-        {/* Heart icon in the inner hub */}
-        <path
-          d="M45.5 35.5C44.3 33.3 40.7 33.3 39.5 35.5C38.2 37.8 40.5 41.5 42.5 43.5C44.5 41.5 46.8 37.8 45.5 35.5Z"
-          fill="currentColor"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
-        
-        {/* Standard Heart nestled at the top crook */}
-        <path
-          d="M50 28C48 24.5 43.5 24.5 41.5 27C39.5 29.5 41.5 34 50 40C58.5 34 60.5 29.5 58.5 27C56.5 24.5 52 24.5 50 28Z"
-          fill="currentColor"
-        />
-
-        {/* Right shooting upward arrow of the V */}
-        <path
-          d="M32 50L50 78L72 32"
-          stroke="currentColor"
-          strokeWidth="11"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        
-        {/* Arrow top-right arrowhead */}
-        <path
-          d="M66.5 22L78 30L62 38"
-          stroke="currentColor"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-
-      {showText && (
-        <span className={`font-sans font-bold uppercase tracking-[0.25em] text-foreground ${textSize}`}>
-          vance
-        </span>
+      ) : (
+        /* Estado Preparado: Placeholder altamente polido aguardando upload da imagem do logo */
+        <div 
+          className={`flex items-center justify-center gap-2 border border-dashed border-brand/30 bg-brand/5 hover:bg-brand/10 rounded-lg transition-all duration-300 group cursor-pointer ${
+            isCompact 
+              ? 'w-8 h-8 p-1' 
+              : `${dimensions.width} ${dimensions.height} px-3 py-1.5`
+          }`}
+          title="Preparado para receber a imagem de logo do VANCE (/logo-vance.png)"
+          id="vance-logo-placeholder"
+        >
+          <Image 
+            size={isCompact ? 14 : dimensions.iconSize} 
+            className="text-brand/60 group-hover:text-brand transition-colors shrink-0" 
+          />
+          {!isCompact && (
+            <div className="flex flex-col text-left leading-none min-w-0">
+              <span className="text-[10px] font-bold text-brand uppercase tracking-wider truncate">Logo Vance</span>
+              <span className="text-[8px] text-[var(--text-muted)] group-hover:text-brand/80 transition-colors truncate font-mono">/logo-vance.png</span>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
 }
+

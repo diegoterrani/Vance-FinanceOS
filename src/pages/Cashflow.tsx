@@ -1,9 +1,7 @@
-'use client';
-
 import React, { useState } from 'react';
-import { CashflowChart, ProjectionChart, CategoryBreakdownChart } from '@/components/finance/Charts';
-import CurrencyDisplay from '@/components/finance/CurrencyDisplay';
-import { formatCurrency } from '@/lib/formatters';
+import { CashflowChart, ProjectionChart, CategoryBreakdownChart } from '../components/finance/Charts';
+import CurrencyDisplay from '../components/finance/CurrencyDisplay';
+import { formatCurrency } from '../lib/formatters';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, Calendar, Filter, Share2, Printer, ChevronRight, HelpCircle } from 'lucide-react';
 
 interface CashflowProps {

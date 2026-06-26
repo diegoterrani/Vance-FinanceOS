@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency } from '../../lib/formatters';
 
 // 1. CASHFLOW CHART
 interface CashflowDataPoint {

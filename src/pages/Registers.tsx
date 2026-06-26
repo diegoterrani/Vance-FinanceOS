@@ -1,13 +1,12 @@
-'use client';
-
 import React, { useState } from 'react';
-import { Transaction, TransactionDirection } from '@/lib/types';
-import CurrencyDisplay from '@/components/finance/CurrencyDisplay';
-import { formatDate } from '@/lib/formatters';
+import { Transaction, TransactionDirection, User } from '../types';
+import CurrencyDisplay from '../components/finance/CurrencyDisplay';
+import { formatDate } from '../lib/formatters';
+import { hasPermission, getRoleDisplayName } from '../lib/permissions';
 import { 
   Plus, Trash2, Calendar, Banknote, Building, Tag, Check, ArrowUpRight, 
   ArrowDownRight, Trash, AlertCircle, ShoppingBag, Landmark, ArrowRight,
-  ClipboardList
+  ClipboardList, Upload, Loader2, ShieldAlert
 } from 'lucide-react';
 
 interface RegistryItem {
@@ -26,6 +25,7 @@ interface RegistryItem {
 interface RegistersProps {
   transactions: Transaction[];
   onAddTransaction: (tx: Transaction) => void;
+  currentUser: User;
 }
 
 const INITIAL_REGISTERS: RegistryItem[] = [
@@ -102,7 +102,7 @@ const INITIAL_REGISTERS: RegistryItem[] = [
   }
 ];
 
-export default function Registers({ transactions, onAddTransaction }: RegistersProps) {
+export default function Registers({ transactions, onAddTransaction, currentUser }: RegistersProps) {
   const [registryList, setRegistryList] = useState<RegistryItem[]>(INITIAL_REGISTERS);
   
   // Tab control: 'all' | 'inflow' | 'outflow'
@@ -120,6 +120,10 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
   
   const [showForm, setShowForm] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const isReadOnly = !hasPermission(currentUser.role, 'canCreateRegistry');
 
   // Helper date generators for 1-click presets based on mock timeline base date '2026-06-21'
   const getOffsetDate = (days: number): string => {
@@ -150,6 +154,86 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
     setCategory(dir === 'inflow' ? 'Contratos Clientes' : 'Sistemas e Softwares');
   };
 
+  const handleFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!hasPermission(currentUser.role, 'canCreateRegistry')) {
+      setImportError('Seu perfil de acesso atual não possui permissão para importar documentos.');
+      return;
+    }
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    setImportError(null);
+
+    try {
+      const validTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'text/xml', 'application/xml'];
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      
+      let mimeType = file.type;
+      if (fileExt === 'xml' && !mimeType) {
+        mimeType = 'text/xml';
+      }
+
+      if (!validTypes.includes(mimeType) && !['pdf', 'jpg', 'jpeg', 'png', 'xml'].includes(fileExt || '')) {
+        throw new Error('Formato inválido. Envie apenas arquivos PDF, JPG, PNG ou XML.');
+      }
+
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error('Erro ao ler o arquivo.'));
+        reader.readAsDataURL(file);
+      });
+
+      const fileContent = await base64Promise;
+
+      const response = await fetch('/api/import-document', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: mimeType || `application/${fileExt}`,
+          fileContent
+        })
+      });
+
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.error || 'Falha ao processar o arquivo.');
+      }
+
+      const data = await response.json();
+
+      if (data.description) setDescription(data.description.toUpperCase());
+      if (data.direction) {
+        setDirection(data.direction);
+        if (data.direction === 'inflow') {
+          setCategory(categoriesInflow.includes(data.category) ? data.category : 'Contratos Clientes');
+        } else {
+          setCategory(categoriesOutflow.includes(data.category) ? data.category : 'Sistemas e Softwares');
+        }
+      }
+      if (data.value) setValue(Math.abs(data.value).toString());
+      if (data.dueDate) setDueDate(data.dueDate);
+      if (data.bank) setBank(data.bank);
+      if (data.documentNumber) setDocumentNumber(data.documentNumber);
+
+      triggerFeedback('Documento importado e campos preenchidos com sucesso!');
+    } catch (err: any) {
+      console.error(err);
+      setImportError(err.message || 'Erro ao processar documento.');
+    } finally {
+      setIsImporting(false);
+      if (e.target) e.target.value = '';
+    }
+  };
+
   // Stats Calculations
   const activeItems = registryList.filter(item => item.status === 'pending');
   
@@ -166,6 +250,10 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
   // Add Item to registration list
   const handleCreateRegistry = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!hasPermission(currentUser.role, 'canCreateRegistry')) {
+      alert(`Erro: Seu perfil de ${getRoleDisplayName(currentUser.role)} não tem permissão para criar lançamentos.`);
+      return;
+    }
     if (!description.trim() || !value || Number(value) <= 0) return;
 
     const numericValue = Number(value);
@@ -198,12 +286,20 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
 
   // Delete Registry Item
   const handleDeleteItem = (id: string) => {
+    if (!hasPermission(currentUser.role, 'canDeleteRegistry')) {
+      alert(`Erro: Seu perfil de ${getRoleDisplayName(currentUser.role)} não tem permissão para remover lançamentos previstos.`);
+      return;
+    }
     setRegistryList(prev => prev.filter(item => item.id !== id));
     triggerFeedback('Lançamento removido.');
   };
 
   // Launch expected item into core banking transactions (Efetivar)
   const handleLaunchToBank = (item: RegistryItem) => {
+    if (!hasPermission(currentUser.role, 'canCreateRegistry')) {
+      alert(`Erro: Seu perfil de ${getRoleDisplayName(currentUser.role)} não tem permissão para lançar extratos.`);
+      return;
+    }
     const tx: Transaction = {
       id: `tx-reg-${Date.now()}`,
       description: item.description,
@@ -251,7 +347,7 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Cadastros Financeiros (AP/AR)</h1>
+          <h1 className="text-xl font-bold text-[var(--text-primary)]">Contas a PAGAR/RECEBER</h1>
           <p className="text-xs text-[var(--text-secondary)]">Gerencie contas a pagar e a receber e realize integrações diretas na bancária</p>
         </div>
         
@@ -281,6 +377,57 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
               Preencher dados do lançamento esperado
             </h3>
             <span className="text-[10px] text-[var(--text-muted)]">Crie previsões para o fluxo de caixa</span>
+          </div>
+
+          {isReadOnly && (
+            <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs flex items-start gap-2.5 animate-fade-in">
+              <ShieldAlert size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
+              <div>
+                <p className="font-bold">Acesso Somente Leitura (Cargo: {getRoleDisplayName(currentUser.role)})</p>
+                <p className="text-[10px] text-amber-500/80 mt-0.5">Seu nível de acesso atual permite apenas visualizar dados financeiros de lançamentos. Você não possui permissão para cadastrar ou importar novos documentos via Inteligência Artificial.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Import NF/Boleto Smart Zone */}
+          <div className="space-y-2">
+            <div className={`p-4 rounded-xl border border-dashed flex flex-col items-center justify-center text-center transition-all relative ${
+              isReadOnly 
+                ? 'bg-neutral-900/40 border-neutral-800 opacity-60' 
+                : 'bg-black/5 border-[var(--border-soft)] hover:bg-black/10'
+            }`}>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.xml"
+                onChange={handleFileImport}
+                disabled={isImporting || isReadOnly}
+                className={`absolute inset-0 w-full h-full opacity-0 ${isReadOnly ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              />
+              {isImporting ? (
+                <div className="flex flex-col items-center gap-2 py-3">
+                  <Loader2 size={24} className="text-brand animate-spin" />
+                  <span className="text-xs font-semibold text-[var(--text-primary)]">Lendo documento com Inteligência Artificial...</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono">Analisando dados da nota fiscal ou boleto</span>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2 py-2">
+                  <div className="p-2 bg-brand/10 text-brand rounded-full">
+                    <Upload size={18} />
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-[var(--text-primary)] block">Importar via Nota Fiscal ou Boleto</span>
+                    <span className="text-[10px] text-[var(--text-secondary)]">Arraste ou clique para selecionar um arquivo (PDF, JPG, PNG, XML) para preencher automaticamente</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {importError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-xs font-medium flex items-center gap-2">
+                <AlertCircle size={14} className="flex-shrink-0" />
+                <span>{importError}</span>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleCreateRegistry} className="space-y-4 text-xs">
@@ -326,7 +473,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                     required
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono font-semibold"
+                    disabled={isReadOnly}
+                    className="w-full pl-9 pr-4 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -342,7 +490,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                   required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -353,7 +502,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                   placeholder="EX: NF-1234, BOL-9923 (Opcional)"
                   value={documentNumber}
                   onChange={(e) => setDocumentNumber(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
             </div>
@@ -365,7 +515,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                 <select
                   value={bank}
                   onChange={(e) => setBank(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="Itaú Unibanco S.A.">Itaú Unibanco S.A. (341)</option>
                   <option value="Banco do Brasil S.A.">Banco do Brasil S.A. (001)</option>
@@ -378,7 +529,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {direction === 'inflow' 
                     ? categoriesInflow.map(cat => <option key={cat} value={cat}>{cat}</option>)
@@ -395,7 +547,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                     required
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono"
+                    disabled={isReadOnly}
+                    className="w-full px-3 py-2 pr-9 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand font-mono disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   <Calendar size={13} className="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none" />
                 </div>
@@ -482,7 +635,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                 <select
                   value={recurrence}
                   onChange={(e) => setRecurrence(e.target.value as any)}
-                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand"
+                  disabled={isReadOnly}
+                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] focus:outline-none focus:border-brand disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="single">Único</option>
                   <option value="monthly">Mensal Recorrente</option>
@@ -501,7 +655,8 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-brand text-white hover:bg-[var(--color-brand-light)] rounded-lg font-semibold transition-all shadow-md cursor-pointer flex items-center gap-1.5"
+                disabled={isReadOnly}
+                className="px-4 py-2 bg-brand text-white hover:bg-[var(--color-brand-light)] rounded-lg font-semibold transition-all shadow-md cursor-pointer flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Plus size={13} className="stroke-[3]" /> Confirmar Cadastro
               </button>
@@ -673,8 +828,9 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                         {isPending ? (
                           <button
                             onClick={() => handleLaunchToBank(item)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20 hover:border-brand/35 rounded-lg transition-all cursor-pointer truncate"
-                            title="Lançará esta conta no painel de conciliação ativa"
+                            disabled={isReadOnly}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[10px] font-bold bg-brand/10 hover:bg-brand/20 text-brand border border-brand/20 hover:border-brand/35 rounded-lg transition-all cursor-pointer truncate disabled:opacity-40 disabled:cursor-not-allowed"
+                            title={isReadOnly ? `Seu papel (${getRoleDisplayName(currentUser.role)}) não permite efetivar lançamentos` : "Lançará esta conta no painel de conciliação ativa"}
                           >
                             <Check size={11} className="stroke-[3]" /> Lançar Extrato
                           </button>
@@ -688,8 +844,9 @@ export default function Registers({ transactions, onAddTransaction }: RegistersP
                       <td className="py-3 px-3 text-right">
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer"
-                          title="Remover Cadastro"
+                          disabled={!hasPermission(currentUser.role, 'canDeleteRegistry')}
+                          className="p-1.5 rounded text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-colors cursor-pointer disabled:opacity-20 disabled:cursor-not-allowed"
+                          title={!hasPermission(currentUser.role, 'canDeleteRegistry') ? `Seu papel (${getRoleDisplayName(currentUser.role)}) não permite excluir lançamentos` : "Remover Cadastro"}
                         >
                           <Trash2 size={13} />
                         </button>

@@ -1,21 +1,22 @@
-'use client';
-
 import React, { useState } from 'react';
-import { Transaction } from '@/lib/types';
-import CurrencyDisplay from '@/components/finance/CurrencyDisplay';
-import { formatDate } from '@/lib/formatters';
-import { Upload, HelpCircle, Check, Search, Filter, RefreshCw, X, AlertTriangle, ChevronRight, FileSpreadsheet, Percent, Info, ArrowRight, CornerDownRight } from 'lucide-react';
+import { Transaction, User } from '../types';
+import CurrencyDisplay from '../components/finance/CurrencyDisplay';
+import { formatDate } from '../lib/formatters';
+import { hasPermission, getRoleDisplayName } from '../lib/permissions';
+import { Upload, HelpCircle, Check, Search, Filter, RefreshCw, X, AlertTriangle, ChevronRight, FileSpreadsheet, Percent, Info, ArrowRight, CornerDownRight, ShieldAlert } from 'lucide-react';
 
 interface ReconciliationProps {
   transactions: Transaction[];
   onUpdateStatus: (id: string, newStatus: any) => void;
   onAddTransaction: (tx: Transaction) => void;
+  currentUser: User;
 }
 
 export default function Reconciliation({
   transactions,
   onUpdateStatus,
-  onAddTransaction
+  onAddTransaction,
+  currentUser
 }: ReconciliationProps) {
   // Tabs
   const [activeTab, setActiveTab] = useState<'pending' | 'auto' | 'resolved'>('pending');
@@ -37,6 +38,9 @@ export default function Reconciliation({
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [parsedLinesLogs, setParsedLinesLogs] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  const canReconcile = hasPermission(currentUser.role, 'canReconcile');
+  const canUploadCnab = hasPermission(currentUser.role, 'canUploadCnab');
 
   // Filter computations
   const getFilteredTransactions = () => {
@@ -196,17 +200,36 @@ export default function Reconciliation({
         
         {/* CNAB Trigger action or upload button */}
         <div className="w-full md:w-auto">
-          <label className="text-xs bg-brand text-white px-4 py-2 hover:bg-[var(--color-brand-light)] font-semibold rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md">
-            <Upload size={14} /> Importar Retorno (.CNAB / .OFX)
-            <input
-              type="file"
-              onChange={handleFileSelect}
-              accept=".ofx,.cnab,.ret,.txt"
-              className="hidden"
-            />
-          </label>
+          {canUploadCnab ? (
+            <label className="text-xs bg-brand text-white px-4 py-2 hover:bg-[var(--color-brand-light)] font-semibold rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md">
+              <Upload size={14} /> Importar Retorno (.CNAB / .OFX)
+              <input
+                type="file"
+                onChange={handleFileSelect}
+                accept=".ofx,.cnab,.ret,.txt"
+                className="hidden"
+              />
+            </label>
+          ) : (
+            <div 
+              className="text-xs bg-neutral-900 border border-[#222222] text-[#A3A3A3] px-4 py-2 font-semibold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
+              title={`Seu cargo (${getRoleDisplayName(currentUser.role)}) não possui permissão para importar arquivos CNAB/OFX`}
+            >
+              <Upload size={14} className="opacity-50" /> Retorno Bloqueado
+            </div>
+          )}
         </div>
       </div>
+
+      {!canReconcile && (
+        <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs flex items-start gap-2.5 animate-fade-in">
+          <ShieldAlert size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
+          <div>
+            <p className="font-bold">Acesso Somente Leitura (Cargo: {getRoleDisplayName(currentUser.role)})</p>
+            <p className="text-[10px] text-amber-500/80 mt-0.5">Você pode visualizar as sugestões de conciliação, mas seu cargo atual não possui permissão para aprovar correspondências ou contestar lançamentos.</p>
+          </div>
+        </div>
+      )}
 
       {/* Tabs list (Pending counter) */}
       <div className="flex border-b border-[var(--border-soft)] gap-4 text-xs">
@@ -356,7 +379,9 @@ export default function Reconciliation({
               <div className="flex gap-2">
                 <button
                   onClick={handleBulkConfirm}
-                  className="bg-brand hover:bg-[var(--color-brand-light)] text-white px-3 py-1.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 text-[11px]"
+                  disabled={!canReconcile}
+                  className="bg-brand hover:bg-[var(--color-brand-light)] text-white px-3 py-1.5 rounded font-semibold transition-all cursor-pointer flex items-center gap-1 text-[11px] disabled:opacity-45 disabled:cursor-not-allowed"
+                  title={!canReconcile ? "Seu cargo não possui permissão para conciliar transações" : ""}
                 >
                   <Check size={12} /> Confirmar Lote
                 </button>
@@ -484,15 +509,17 @@ export default function Reconciliation({
                           <div className="flex gap-1.5 justify-end">
                             <button
                               onClick={() => onUpdateStatus(tx.id, 'matched')}
-                              className="p-1.5 rounded bg-green-500/10 hover:bg-green-500 hover:text-white text-green-500 transition-all cursor-pointer"
-                              title="Aprovar par"
+                              disabled={!canReconcile}
+                              className="p-1.5 rounded bg-green-500/10 hover:bg-green-500 hover:text-white text-green-500 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-green-500/10 disabled:hover:text-green-500"
+                              title={!canReconcile ? `Seu papel não permite aprovar conciliações` : "Aprovar par"}
                             >
                               <Check size={14} />
                             </button>
                             <button
                               onClick={() => onUpdateStatus(tx.id, 'disputed')}
-                              className="p-1.5 rounded bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 transition-all cursor-pointer"
-                              title="Reportar disputa"
+                              disabled={!canReconcile}
+                              className="p-1.5 rounded bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-red-500/10 disabled:hover:text-red-500"
+                              title={!canReconcile ? `Seu papel não permite reportar disputas` : "Reportar disputa"}
                             >
                               <X size={14} />
                             </button>
@@ -574,7 +601,9 @@ export default function Reconciliation({
                       onUpdateStatus(activeDrawerTx.id, 'matched');
                       setActiveDrawerTx(null);
                     }}
-                    className="w-full bg-brand hover:bg-[var(--color-brand-light)] text-white font-semibold py-2 rounded transition-all cursor-pointer text-center text-[11px]"
+                    disabled={!canReconcile}
+                    className="w-full bg-brand hover:bg-[var(--color-brand-light)] text-white font-semibold py-2 rounded transition-all cursor-pointer text-center text-[11px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!canReconcile ? "Seu papel não permite vincular registros" : ""}
                   >
                     Vincular Registros
                   </button>
@@ -583,7 +612,9 @@ export default function Reconciliation({
                       onUpdateStatus(activeDrawerTx.id, 'disputed');
                       setActiveDrawerTx(null);
                     }}
-                    className="w-full bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 font-semibold py-2 rounded transition-all border border-red-500/20 cursor-pointer text-center text-[11px]"
+                    disabled={!canReconcile}
+                    className="w-full bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 font-semibold py-2 rounded transition-all border border-red-500/20 cursor-pointer text-center text-[11px] disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={!canReconcile ? "Seu papel não permite reportar erros" : ""}
                   >
                     Reportar Erro
                   </button>

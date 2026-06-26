@@ -1,13 +1,19 @@
-'use client';
-
-import React, { useState } from 'react';
-import { formatCNPJ, formatCurrency, formatDate, formatDateTime } from '@/lib/formatters';
-import { AppState, User, PluggyAccount, WebhookLog, AuditLog } from '@/lib/types';
+import React, { useState, useEffect } from 'react';
+import { formatCNPJ, formatCurrency, formatDate, formatDateTime } from '../lib/formatters';
+import { AppState, User, PluggyAccount, WebhookLog, AuditLog, Company } from '../types';
+import { hasPermission, getRoleDisplayName } from '../lib/permissions';
 import {
   Building2, Users, Cable, CreditCard, Bell, KeyRound, Eye, ShieldCheck, Palette,
   Upload, Plus, Shield, RefreshCw, Smartphone, Key, Lock, Mail, Trash2, Clipboard,
-  Clock, CheckCircle, AlertTriangle, FileText, Download, Check, HelpCircle, Save, ExternalLink
+  Clock, CheckCircle, AlertTriangle, FileText, Download, Check, HelpCircle, Save, ExternalLink,
+  Globe, Server, Zap, Loader2, PlayCircle, Send, Terminal, Activity, Network, Database, ShieldAlert
 } from 'lucide-react';
+
+interface TestLog {
+  time: string;
+  type: 'info' | 'success' | 'error' | 'warning';
+  message: string;
+}
 
 interface SettingsProps {
   appState: AppState;
@@ -20,6 +26,13 @@ interface SettingsProps {
   onAddPluggyAccount: (acc: PluggyAccount) => void;
   webhookLogs: WebhookLog[];
   auditLogs: AuditLog[];
+  onOpenSettingsModal?: () => void;
+  companies: Company[];
+  onAddCompany: (c: Company) => void;
+  onRemoveCompany: (cnpj: string) => void;
+  onRemovePluggyAccount: (id: string) => void;
+  activeSettingsTab?: string;
+  currentUser?: User;
 }
 
 export default function Settings({
@@ -32,12 +45,37 @@ export default function Settings({
   pluggyAccounts,
   onAddPluggyAccount,
   webhookLogs,
-  auditLogs
+  auditLogs,
+  onOpenSettingsModal,
+  companies,
+  onAddCompany,
+  onRemoveCompany,
+  onRemovePluggyAccount,
+  activeSettingsTab,
+  currentUser
 }: SettingsProps) {
   // Lateral tabs
   const [activeTab, setActiveTab] = useState<
-    'company' | 'users' | 'integrations' | 'billing' | 'notifications' | 'security' | 'privacy' | 'appearance'
+    | 'company'
+    | 'companies-cnpj'
+    | 'users'
+    | 'bank-api'
+    | 'multiple-accounts'
+    | 'erp-integration'
+    | 'integrations'
+    | 'billing'
+    | 'notifications'
+    | 'security'
+    | 'privacy'
+    | 'appearance'
   >('company');
+
+  // Sync activeTab with activeSettingsTab prop when it changes
+  useEffect(() => {
+    if (activeSettingsTab) {
+      setActiveTab(activeSettingsTab as any);
+    }
+  }, [activeSettingsTab]);
 
   // Success save state toast feedback
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -45,6 +83,9 @@ export default function Settings({
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2000);
   };
+
+  const canManageUsers = currentUser ? hasPermission(currentUser.role, 'canManageUsers') : false;
+  const canManageSettings = currentUser ? hasPermission(currentUser.role, 'canManageSettings') : true;
 
   // ----------------------------------------------------
   // 1. TABS: COMPANY CONFIGS
@@ -60,6 +101,10 @@ export default function Settings({
 
   const handleSaveCompany = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageSettings) {
+      alert('Erro: Seu cargo não possui permissão para alterar as configurações do inquilino.');
+      return;
+    }
     onUpdateState({
       selectedCompany: {
         ...appState.selectedCompany,
@@ -99,6 +144,10 @@ export default function Settings({
 
   const handleSendInvite = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageUsers) {
+      alert('Erro: Apenas Administradores podem convidar novos usuários.');
+      return;
+    }
     if (!inviteEmail || !inviteName) return;
 
     const newUser: User = {
@@ -124,7 +173,7 @@ export default function Settings({
   // 3. TABS: INTEGRATIONS & WEBHOOKS
   // ----------------------------------------------------
   const [webhookUrl, setWebhookUrl] = useState('https://meu-sistema-erp.com/webhooks/vance');
-  const [webhookEvents, setWebhookEvents] = useState<Record<string, boolean>>({
+  const [webhookEvents, setWebhookEvents] = useState({
     'cnab.processed': true,
     'payment.overdue': false,
     'balance.alert': true,
@@ -242,6 +291,221 @@ export default function Settings({
   };
 
   // ----------------------------------------------------
+  // 9. TABS: CONECTIVIDADE PORT (BANK API, MULTIPLE ACCOUNTS, ERP)
+  // ----------------------------------------------------
+  const [selectedBank, setSelectedBank] = useState('itau');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [certUploaded, setCertUploaded] = useState(false);
+  const [bankApiLogs, setBankApiLogs] = useState<TestLog[]>([]);
+  const [testingBankApi, setTestingBankApi] = useState(false);
+
+  const [showAddAccountForm, setShowAddAccountForm] = useState(false);
+  const [newAccName, setNewAccName] = useState('');
+  const [newAccBankName, setNewAccBankName] = useState('Itaú S.A.');
+  const [newAccType, setNewAccType] = useState<any>('checking');
+  const [newAccBalance, setNewAccBalance] = useState('');
+  const [newAccAgency, setNewAccAgency] = useState('');
+  const [newAccNumber, setNewAccNumber] = useState('');
+  const [newAccCompanyCnpj, setNewAccCompanyCnpj] = useState(() => companies?.[0]?.cnpj || '');
+
+  const [selectedErp, setSelectedErp] = useState('omie');
+  const [erpUrl, setErpUrl] = useState('https://api.omie.com.br/api/v1/');
+  const [erpToken, setErpToken] = useState('');
+  const [erpAppKey, setErpAppKey] = useState('');
+  const [syncFrequency, setSyncFrequency] = useState('daily');
+  const [syncEntities, setSyncEntities] = useState({
+    ap: true,
+    ar: true,
+    clients_vendors: true,
+    bank_statements: false
+  });
+  const [erpLogs, setErpLogs] = useState<TestLog[]>([]);
+  const [testingErp, setTestingErp] = useState(false);
+  const [erpStatus, setErpStatus] = useState<'disconnected' | 'connected' | 'error'>('disconnected');
+
+  const [showAddCompanyForm, setShowAddCompanyForm] = useState(false);
+  const [newCnpj, setNewCnpj] = useState('');
+  const [newRazaoSocial, setNewRazaoSocial] = useState('');
+  const [newNomeFantasia, setNewNomeFantasia] = useState('');
+  const [newRegime, setNewRegime] = useState('Simples Nacional');
+  const [newMinBalance, setNewMinBalance] = useState('10000');
+
+  const handleTestBankApi = () => {
+    if (testingBankApi) return;
+    setTestingBankApi(true);
+    setBankApiLogs([
+      { time: getNowTime(), type: 'info', message: `Iniciando handshake síncrono com API do ${getBankFullName(selectedBank)} PJ...` }
+    ]);
+
+    setTimeout(() => {
+      setBankApiLogs(prev => [
+        ...prev,
+        { time: getNowTime(), type: 'info', message: 'Resolvendo endpoint OAuth do gateway de homologação...' },
+        { time: getNowTime(), type: 'info', message: `Enviando Credenciais do Cliente: ${clientId ? 'PROVEC_CLIENT_ID' : 'Default Sandbox Token'}` }
+      ]);
+    }, 600);
+
+    setTimeout(() => {
+      if (!clientId && selectedBank !== 'nubank') {
+        setBankApiLogs(prev => [
+          ...prev,
+          { time: getNowTime(), type: 'warning', message: 'Nenhuma chave Client ID informada. Utilizando credencial provisória de testes (Sandbox).' }
+        ]);
+      }
+      setBankApiLogs(prev => [
+        ...prev,
+        { time: getNowTime(), type: 'info', message: 'Processando certificado digital A1 ICP-Brasil...' },
+        { time: getNowTime(), type: 'success', message: 'Autenticação de camada de segurança MTLS efetuada com sucesso.' }
+      ]);
+    }, 1200);
+
+    setTimeout(() => {
+      setBankApiLogs(prev => [
+        ...prev,
+        { time: getNowTime(), type: 'success', message: 'Conexão API estabelecida de forma síncrona!' },
+        { time: getNowTime(), type: 'info', message: `Sincronismo via Webhook API pronto em: https://vance.com.br/api/v1/webhooks/${selectedBank}` }
+      ]);
+      setTestingBankApi(false);
+
+      const bankNames: Record<string, string> = {
+        itau: 'Itaú Unibanco S.A.',
+        bradesco: 'Bradesco Net Empresa',
+        bb: 'Banco do Brasil S.A.',
+        santander: 'Santander PJ',
+        nubank: 'Nubank PJ'
+      };
+      
+      const exists = pluggyAccounts.some(acc => acc.bankName === bankNames[selectedBank]);
+      if (!exists) {
+        onAddPluggyAccount({
+          id: `acc-${Date.now()}`,
+          name: 'Conta Corrente Integrada',
+          type: 'checking',
+          bankName: bankNames[selectedBank] || 'Banco PJ Sincronizado',
+          balance: 75000.00,
+          syncStatus: 'success',
+          lastSync: 'Agora mesmo',
+          companyCnpj: companies?.[0]?.cnpj || '12345678000199'
+        });
+      }
+    }, 2000);
+  };
+
+  const handleTestErp = () => {
+    if (testingErp) return;
+    setTestingErp(true);
+    setErpLogs([
+      { time: getNowTime(), type: 'info', message: `Estabelecendo sincronia de dados com ${getErpFullName(selectedErp)}...` }
+    ]);
+
+    setTimeout(() => {
+      setErpLogs(prev => [
+        ...prev,
+        { time: getNowTime(), type: 'info', message: `Acessando endpoint REST: ${erpUrl}` },
+        { time: getNowTime(), type: 'info', message: `Validando API Token: ${erpToken ? '••••••••' : 'Em branco'}` }
+      ]);
+    }, 500);
+
+    setTimeout(() => {
+      if (!erpToken && selectedErp !== 'custom') {
+        setErpLogs(prev => [
+          ...prev,
+          { time: getNowTime(), type: 'error', message: 'Falha na autenticação: API Token é obrigatório para produção.' }
+        ]);
+        setErpStatus('error');
+        setTestingErp(false);
+      } else {
+        setErpLogs(prev => [
+          ...prev,
+          { time: getNowTime(), type: 'info', message: 'Conectado! Mapeando entidades de contas a pagar (AP) e receber (AR)...' },
+          { time: getNowTime(), type: 'success', message: 'Campos customizados mapeados e integrados com sucesso!' }
+        ]);
+        
+        setTimeout(() => {
+          setErpLogs(prev => [
+            ...prev,
+            { time: getNowTime(), type: 'success', message: 'Sincronização de ERP estabelecida com status operacional ativo!' }
+          ]);
+          setErpStatus('connected');
+          setTestingErp(false);
+        }, 800);
+      }
+    }, 1400);
+  };
+
+  const handleAddAccountSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAccName || !newAccBalance) return;
+
+    onAddPluggyAccount({
+      id: `acc-${Date.now()}`,
+      name: newAccType === 'cash' ? `${newAccName}` : `${newAccName} (${newAccAgency}-${newAccNumber})`,
+      type: newAccType,
+      bankName: newAccType === 'cash' ? 'Caixa em Dinheiro' : newAccBankName,
+      balance: parseFloat(newAccBalance) || 0,
+      syncStatus: 'success',
+      lastSync: 'Sincronizado agora',
+      companyCnpj: newAccCompanyCnpj || companies?.[0]?.cnpj || '12345678000199'
+    });
+
+    setNewAccName('');
+    setNewAccBalance('');
+    setNewAccAgency('');
+    setNewAccNumber('');
+    setShowAddAccountForm(false);
+  };
+
+  const handleAddCompanySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCnpj || !newNomeFantasia || !newRazaoSocial) return;
+
+    const cleanCnpj = newCnpj.replace(/\D/g, '');
+
+    onAddCompany({
+      cnpj: cleanCnpj || newCnpj,
+      razaoSocial: newRazaoSocial,
+      nomeFantasia: newNomeFantasia.toUpperCase(),
+      regime: newRegime,
+      minBalanceAlert: parseFloat(newMinBalance) || 10000.00,
+      timezone: 'America/Sao_Paulo',
+      certificateUploaded: false
+    });
+
+    setNewCnpj('');
+    setNewRazaoSocial('');
+    setNewNomeFantasia('');
+    setNewRegime('Simples Nacional');
+    setShowAddCompanyForm(false);
+  };
+
+  const getNowTime = () => {
+    return new Date().toLocaleTimeString('pt-BR');
+  };
+
+  const getBankFullName = (code: string) => {
+    switch (code) {
+      case 'itau': return 'Itaú Unibanco S.A.';
+      case 'bradesco': return 'Bradesco Net Empresa';
+      case 'bb': return 'Banco do Brasil S.A.';
+      case 'santander': return 'Santander PJ';
+      case 'nubank': return 'Nubank Co-Corporativo PJ';
+      default: return 'Banco de Destino PJ';
+    }
+  };
+
+  const getErpFullName = (code: string) => {
+    switch (code) {
+      case 'omie': return 'Omie ERP';
+      case 'totvs': return 'Totvs Protheus / RM Pro';
+      case 'contaazul': return 'Conta Azul';
+      case 'bling': return 'Bling ERP';
+      case 'custom': return 'REST API Customizada';
+      default: return 'Sistema ERP';
+    }
+  };
+
+  // ----------------------------------------------------
   // 8. TABS: APPEARANCE
   // ----------------------------------------------------
   const [dateStyle, setDateStyle] = useState('BR');
@@ -267,32 +531,86 @@ export default function Settings({
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         
         {/* Left Vertical Sub Navigation Tabs list */}
-        <div className="md:col-span-1 space-y-1">
-          {[
-            { id: 'company', label: 'Dados da Empresa', icon: Building2 },
-            { id: 'users', label: 'Usuários e Funções', icon: Users },
-            { id: 'integrations', label: 'Integrações Externas', icon: Cable },
-            { id: 'billing', label: 'Licença & Cobrança', icon: CreditCard },
-            { id: 'notifications', label: 'Notificações Regras', icon: Bell },
-            { id: 'security', label: 'Trilha & Segurança', icon: KeyRound },
-            { id: 'privacy', label: 'Privacidade LGPD', icon: Shield },
-            { id: 'appearance', label: 'Formato & Aparência', icon: Palette }
-          ].map(tab => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full text-left px-3 py-2.5 rounded-lg text-xs font-semibold flex items-center gap-2.5 hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer ${
-                  activeTab === tab.id
-                    ? 'bg-brand/10 text-brand border-l-2 border-brand font-bold'
-                    : 'text-[var(--text-secondary)]'
-                }`}
-              >
-                <Icon size={15} /> {tab.label}
-              </button>
-            );
-          })}
+        <div className="md:col-span-1 space-y-4">
+          
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-[var(--text-muted)] px-2 block">Organização</span>
+            {[
+              { id: 'company', label: 'Dados da Matriz', icon: Building2 },
+              { id: 'companies-cnpj', label: 'Gestão de CNPJs / Grupo', icon: Globe },
+              { id: 'users', label: 'Usuários e Funções', icon: Users }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2.5 hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-brand/10 text-brand border-l-2 border-brand font-bold'
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <Icon size={14} /> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-[var(--text-muted)] px-2 block">Conectividade PJ &amp; ERP</span>
+            {[
+              { id: 'bank-api', label: 'APIs Bancárias PJ', icon: Key },
+              { id: 'multiple-accounts', label: 'Contas PJ e Ativos', icon: CreditCard },
+              { id: 'erp-integration', label: 'Integração ERP', icon: Network },
+              { id: 'integrations', label: 'Webhooks & APIs', icon: Cable }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2.5 hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-brand/10 text-brand border-l-2 border-brand font-bold'
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <Icon size={14} /> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-1">
+            <span className="text-[9px] uppercase tracking-wider font-extrabold text-[var(--text-muted)] px-2 block">Preferências &amp; Sistema</span>
+            {[
+              { id: 'billing', label: 'Licença & Cobrança', icon: CreditCard },
+              { id: 'notifications', label: 'Notificações Regras', icon: Bell },
+              { id: 'security', label: 'Trilha & Segurança', icon: KeyRound },
+              { id: 'privacy', label: 'Privacidade LGPD', icon: Shield },
+              { id: 'appearance', label: 'Formato & Aparência', icon: Palette }
+            ].map(tab => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-2.5 hover:bg-[var(--bg-card-hover)] transition-all cursor-pointer ${
+                    activeTab === tab.id
+                      ? 'bg-brand/10 text-brand border-l-2 border-brand font-bold'
+                      : 'text-[var(--text-secondary)]'
+                  }`}
+                >
+                  <Icon size={14} /> {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
         </div>
 
         {/* Right Active sub-tab Content Area */}
@@ -301,6 +619,15 @@ export default function Settings({
           {/* 1. COMPONENT: TAB COMPANY */}
           {activeTab === 'company' && (
             <form onSubmit={handleSaveCompany} className="space-y-6">
+              {!canManageSettings && currentUser && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs flex items-start gap-2.5 animate-fade-in">
+                  <ShieldAlert size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                  <div>
+                    <p className="font-bold">Acesso Somente Leitura (Cargo: {getRoleDisplayName(currentUser.role)})</p>
+                    <p className="text-[10px] text-amber-500/80 mt-0.5">Sua conta atual não possui permissões administrativas para alterar o perfil institucional da organização ou realizar upload de novos certificados digitais (.PFX).</p>
+                  </div>
+                </div>
+              )}
               <div className="border-b border-[var(--border-soft)] pb-3">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Perfil Jurídico da Organização</h3>
                 <p className="text-[10px] text-[var(--text-secondary)]">Insira os dados societários para emissão de relatórios oficiais</p>
@@ -424,7 +751,9 @@ export default function Settings({
               <div className="flex justify-end pt-3">
                 <button
                   type="submit"
-                  className="bg-brand hover:bg-[var(--color-brand-light)] text-white px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer"
+                  disabled={!canManageSettings}
+                  className="bg-brand hover:bg-[var(--color-brand-light)] text-white px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={!canManageSettings ? "Seu cargo não possui permissão para salvar alterações" : "Salvar configurações corporativas"}
                 >
                   <Save size={13} /> Salvar Alterações
                 </button>
@@ -436,6 +765,16 @@ export default function Settings({
           {activeTab === 'users' && (
             <div className="space-y-6">
               
+              {!canManageUsers && currentUser && (
+                <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-500 text-xs flex items-start gap-2.5 animate-fade-in">
+                  <ShieldAlert size={16} className="mt-0.5 flex-shrink-0 text-amber-500" />
+                  <div>
+                    <p className="font-bold">Acesso Somente Leitura (Cargo: {getRoleDisplayName(currentUser.role)})</p>
+                    <p className="text-[10px] text-amber-500/80 mt-0.5">Sua conta não possui permissões de administração de equipe. Apenas o <strong>Administrador Geral</strong> pode convidar novos membros, reatribuir cargos ou alterar o status de acesso.</p>
+                  </div>
+                </div>
+              )}
+
               <div className="border-b border-[var(--border-soft)] pb-3 flex justify-between items-center">
                 <div>
                   <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Gestão de Equipe e Roles</h3>
@@ -443,7 +782,9 @@ export default function Settings({
                 </div>
                 <button
                   onClick={() => setShowInviteModal(true)}
-                  className="bg-brand text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[var(--color-brand-light)] transition-all flex items-center gap-1 cursor-pointer"
+                  disabled={!canManageUsers}
+                  className="bg-brand text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-[var(--color-brand-light)] transition-all flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={!canManageUsers ? "Apenas Administradores podem convidar novos usuários" : "Convidar novo integrante da equipe"}
                 >
                   <Plus size={14} /> Convidar Integrante
                 </button>
@@ -543,7 +884,9 @@ export default function Settings({
                       <select
                         value={user.role}
                         onChange={(e) => onUpdateUserRole(user.id, e.target.value)}
-                        className="text-[10px] px-2 py-1 rounded border border-[var(--border-soft)] bg-[var(--bg-input)]"
+                        disabled={!canManageUsers}
+                        className="text-[10px] px-2 py-1 rounded border border-[var(--border-soft)] bg-[var(--bg-input)] disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={!canManageUsers ? "Apenas Administradores podem mudar cargos" : "Atribuir cargo"}
                       >
                         <option value="viewer">Viewer</option>
                         <option value="analista">Analista</option>
@@ -553,11 +896,13 @@ export default function Settings({
 
                       <button
                         onClick={() => onToggleUserStatus(user.id)}
-                        className={`px-2.5 py-1 rounded font-mono font-bold text-[9px] uppercase cursor-pointer ${
+                        disabled={!canManageUsers}
+                        className={`px-2.5 py-1 rounded font-mono font-bold text-[9px] uppercase cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                           user.status === 'active'
                             ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20'
                             : 'bg-red-500/10 text-red-500 hover:bg-red-500/20'
                         }`}
+                        title={!canManageUsers ? "Apenas Administradores podem alterar status" : "Ativar/Desativar usuário"}
                       >
                         {user.status === 'active' ? 'Ativo' : 'Inativo'}
                       </button>
@@ -567,6 +912,671 @@ export default function Settings({
                 ))}
               </div>
 
+            </div>
+          )}
+
+          {/* COMPONENT: TAB COMPANIES CNPJ */}
+          {activeTab === 'companies-cnpj' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex justify-between items-start border-b border-[var(--border-soft)] pb-3 gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Gestão de CNPJs / Empresas do Grupo</h3>
+                  <p className="text-[10px] text-[var(--text-secondary)] mt-1 leading-relaxed">
+                    Gerencie as empresas e CNPJs vinculados a esta conta de cliente para filtrar ou consolidar seus fluxos de contas a pagar e receber.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddCompanyForm(!showAddCompanyForm)}
+                  className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-brand/90 transition-all shadow-md shrink-0 animate-fade-in"
+                >
+                  {showAddCompanyForm ? 'Fechar Form' : 'Cadastrar Empresa'}
+                  <Plus size={13} />
+                </button>
+              </div>
+
+              {/* Add Company form */}
+              {showAddCompanyForm && (
+                <form onSubmit={handleAddCompanySubmit} className="p-4 bg-black/5 rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-up text-xs">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">CNPJ</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: 00.000.000/0000-00"
+                      value={newCnpj}
+                      onChange={(e) => setNewCnpj(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand font-mono"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Nome Fantasia</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Vance Importadora"
+                      value={newNomeFantasia}
+                      onChange={(e) => setNewNomeFantasia(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="space-y-1 sm:col-span-2">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Razão Social Completa</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Vance Comércio de Importados e Eletrônicos Ltda"
+                      value={newRazaoSocial}
+                      onChange={(e) => setNewRazaoSocial(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Regime Tributário</label>
+                    <select
+                      value={newRegime}
+                      onChange={(e) => setNewRegime(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    >
+                      <option value="Simples Nacional">Simples Nacional</option>
+                      <option value="Lucro Presumido">Lucro Presumido</option>
+                      <option value="Lucro Real">Lucro Real</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Saldo de Caixa Mínimo Alvo (R$)</label>
+                    <input
+                      type="number"
+                      placeholder="10000"
+                      value={newMinBalance}
+                      onChange={(e) => setNewMinBalance(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-brand hover:bg-brand/90 text-white rounded-lg font-bold text-xs cursor-pointer shadow-md uppercase font-semibold"
+                    >
+                      Confirmar Cadastro de CNPJ
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* List of registered Companies */}
+              <div className="space-y-3">
+                <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Empresas / CNPJs Ativos ({companies?.length || 0})</span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {companies?.map((comp) => (
+                    <div
+                      key={comp.cnpj}
+                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/5 flex justify-between items-center hover:border-[var(--border-strong)] transition-all group animate-fade-in"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                          <h4 className="font-bold text-[var(--text-primary)]">{comp.nomeFantasia}</h4>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)] font-mono">CNPJ: {comp.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")}</p>
+                        <p className="text-[9px] text-[var(--text-muted)] line-clamp-1">{comp.razaoSocial}</p>
+                        <span className="inline-block text-[8px] bg-brand/10 text-brand px-1.5 py-0.5 rounded font-mono mt-1 uppercase font-bold">
+                          {comp.regime}
+                        </span>
+                      </div>
+
+                      {companies.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => onRemoveCompany(comp.cnpj)}
+                          className="opacity-0 group-hover:opacity-100 p-2 rounded hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-all cursor-pointer"
+                          title="Remover Empresa"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPONENT: TAB BANK API */}
+          {activeTab === 'bank-api' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="border-b border-[var(--border-soft)] pb-3">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Registrar Integração Bancária PJ</h3>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1 leading-relaxed">
+                  Conecte e assine chaves de API com instituições PJ homologadas no Banco Central do Brasil para sincronização em tempo real de extratos.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Input parameters */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Instituição Financeira (PJ)</label>
+                    <select
+                      value={selectedBank}
+                      onChange={(e) => setSelectedBank(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-brand"
+                    >
+                      <option value="itau">Itaú Empresas (APIs K02 / K20)</option>
+                      <option value="bradesco">Bradesco PJ API Web</option>
+                      <option value="bb">Banco do Brasil Developer PJ</option>
+                      <option value="santander">Santander PJ API Link</option>
+                      <option value="nubank">Nubank PJ (Sem certificado MTLS)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Chave do Cliente (Client ID)</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[var(--text-muted)]">
+                        <Key size={12} />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Insira o Client ID fornecido pelo banco"
+                        value={clientId}
+                        onChange={(e) => setClientId(e.target.value)}
+                        className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:border-brand font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Segredo do Cliente (Client Secret)</label>
+                    <input
+                      type="password"
+                      placeholder="••••••••••••••••••••••••"
+                      value={clientSecret}
+                      onChange={(e) => setClientSecret(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-brand font-mono"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-black/10 rounded-lg border border-[var(--border-soft)] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">Certificado Digital (A1)</span>
+                      {certUploaded && (
+                        <span className="text-[9px] text-green-500 font-bold bg-green-500/10 px-1.5 py-0.5 rounded flex items-center gap-1 border border-green-500/20">
+                          <Check size={10} /> Carregado
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[9px] text-[var(--text-muted)]">Exigido pela maioria dos bancos brasileiros para MTLS.</p>
+                    <button
+                      type="button"
+                      onClick={() => setCertUploaded(!certUploaded)}
+                      className={`w-full py-1.5 text-center rounded-md border text-[10px] font-semibold cursor-pointer transition-colors ${
+                        certUploaded
+                          ? 'bg-black/10 border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-black/20'
+                          : 'bg-brand/10 border-brand/20 text-brand hover:bg-brand/20'
+                      }`}
+                    >
+                      {certUploaded ? 'Remover Certificado' : 'Selecionar Certificado .PFX / .P12'}
+                    </button>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleTestBankApi}
+                      disabled={testingBankApi}
+                      className="w-full py-2.5 bg-brand hover:bg-brand/90 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50"
+                    >
+                      {testingBankApi ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          Conectando...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={13} />
+                          Testar Conexão API
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Console logger response */}
+                <div className="bg-black/40 rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
+                  <div className="space-y-2 flex-1 overflow-y-auto text-[10px]">
+                    <div className="flex items-center gap-1.5 text-[var(--text-secondary)] border-b border-[var(--border-soft)] pb-1.5 mb-2 shrink-0">
+                      <Terminal size={12} className="text-[var(--text-muted)]" />
+                      <span>Console de Depuração API Bancária</span>
+                    </div>
+                    {bankApiLogs.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-[var(--text-muted)] px-4 pt-10">
+                        <Activity size={24} className="mb-2 text-[var(--text-muted)] animate-pulse" />
+                        <p className="text-[9px]">Aguardando disparo do teste...</p>
+                        <p className="text-[8px] text-[var(--text-muted)] mt-1">Preencha os campos e clique em &quot;Testar Conexão API&quot;.</p>
+                      </div>
+                    ) : (
+                      bankApiLogs.map((log, idx) => (
+                        <div key={idx} className="space-y-0.5">
+                          <span className="text-[var(--text-muted)]">[{log.time}]</span>{' '}
+                          <span
+                            className={`font-semibold ${
+                              log.type === 'success'
+                                ? 'text-green-500'
+                                : log.type === 'error'
+                                ? 'text-red-500'
+                                : log.type === 'warning'
+                                ? 'text-yellow-500'
+                                : 'text-[var(--text-primary)]'
+                            }`}
+                          >
+                            {log.type.toUpperCase()}:
+                          </span>{' '}
+                          <span className="text-[var(--text-secondary)] leading-relaxed">{log.message}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {bankApiLogs.length > 0 && (
+                    <div className="text-[9px] text-[var(--text-muted)] border-t border-[var(--border-soft)] pt-1.5 mt-2 flex justify-between shrink-0">
+                      <span>Gateway: VANCE-GATE-V1</span>
+                      <span>Latência: ~38ms</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPONENT: TAB MULTIPLE ACCOUNTS */}
+          {activeTab === 'multiple-accounts' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex justify-between items-start border-b border-[var(--border-soft)] pb-3 gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Contas Bancárias de Homologação</h3>
+                  <p className="text-[10px] text-[var(--text-secondary)] mt-1 leading-relaxed">
+                    Defina e gerencie múltiplas contas correntes, poupanças ou de investimentos corporativos da sua empresa.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAddAccountForm(!showAddAccountForm)}
+                  className="px-3 py-1.5 bg-brand text-white rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer hover:bg-brand/90 transition-all shadow-md shrink-0 animate-fade-in"
+                >
+                  {showAddAccountForm ? 'Fechar Form' : 'Adicionar Conta'}
+                  <Plus size={13} />
+                </button>
+              </div>
+
+              {/* Add Account form */}
+              {showAddAccountForm && (
+                <form onSubmit={handleAddAccountSubmit} className="p-4 bg-black/5 rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-slide-up text-xs">
+                  <div className="space-y-1 col-span-1 sm:col-span-2 md:col-span-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Empresa Proprietária (CNPJ)</label>
+                    <select
+                      value={newAccCompanyCnpj}
+                      onChange={(e) => setNewAccCompanyCnpj(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    >
+                      {companies?.map(c => (
+                        <option key={c.cnpj} value={c.cnpj}>{c.nomeFantasia} ({c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")})</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Tipo de Conta / Ativo</label>
+                    <select
+                      value={newAccType}
+                      onChange={(e) => {
+                        setNewAccType(e.target.value as any);
+                        if (e.target.value === 'cash') {
+                          setNewAccBankName('Caixa em Dinheiro');
+                        }
+                      }}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    >
+                      <option value="checking">Conta Corrente (Checking)</option>
+                      <option value="savings">Poupança / Reserva (Savings)</option>
+                      <option value="credit_card">Cartão Corporativo (Credit Card)</option>
+                      <option value="investment">Conta de Investimento (Tesouro, CDB, CDI)</option>
+                      <option value="cash">Valores em Dinheiro (Dinheiro em Espécie)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Nome de Apelido da Conta / Caixa</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={newAccType === 'cash' ? "Ex: Caixa Físico Escritório" : "Ex: Conta Operacional Principal"}
+                      value={newAccName}
+                      onChange={(e) => setNewAccName(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                    />
+                  </div>
+
+                  {newAccType !== 'cash' && (
+                    <>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Instituição Bancária</label>
+                        <select
+                          value={newAccBankName}
+                          onChange={(e) => setNewAccBankName(e.target.value)}
+                          className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand"
+                        >
+                          <option value="Itaú Unibanco S.A.">Itaú Unibanco S.A.</option>
+                          <option value="Bradesco S.A.">Bradesco Net Empresa</option>
+                          <option value="Banco do Brasil S.A.">Banco do Brasil S.A.</option>
+                          <option value="Santander S.A.">Santander PJ</option>
+                          <option value="Nubank PJ">Nubank PJ</option>
+                          <option value="XP Investimentos">XP Investimentos</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Número da Agência</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: 3120"
+                          value={newAccAgency}
+                          onChange={(e) => setNewAccAgency(e.target.value)}
+                          className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand font-mono"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Número da Conta &amp; Dígito</label>
+                        <input
+                          type="text"
+                          placeholder="Ex: 48321-9"
+                          value={newAccNumber}
+                          onChange={(e) => setNewAccNumber(e.target.value)}
+                          className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand font-mono"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Saldo Atual / Valor em Caixa (R$)</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="0.00"
+                      value={newAccBalance}
+                      onChange={(e) => setNewAccBalance(e.target.value)}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 focus:outline-none focus:border-brand font-mono"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2 md:col-span-3 flex justify-end pt-2">
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-brand hover:bg-brand/90 text-white rounded-lg font-bold text-xs cursor-pointer shadow-md uppercase font-semibold"
+                    >
+                      Salvar Ativo / Conta PJ
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* List of registered accounts */}
+              <div className="space-y-3">
+                <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Contas PJ &amp; Ativos de Caixa Ativos ({pluggyAccounts.length})</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {pluggyAccounts.map((acc) => (
+                    <div
+                      key={acc.id}
+                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/5 flex justify-between items-start hover:border-[var(--border-strong)] transition-all group animate-fade-in"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className={`w-1.5 h-1.5 rounded-full ${acc.type === 'investment' ? 'bg-amber-500' : acc.type === 'cash' ? 'bg-teal-500' : 'bg-green-500'}`}></span>
+                          <h4 className="font-bold text-[var(--text-primary)]">{acc.bankName}</h4>
+                        </div>
+                        <p className="text-[10px] text-[var(--text-secondary)] font-semibold">{acc.name}</p>
+                        <p className="text-[9px] text-[var(--text-muted)] font-medium">
+                          Empresa: <span className="text-brand font-bold uppercase">{companies?.find(c => c.cnpj === acc.companyCnpj)?.nomeFantasia || 'VANCE HOLDING'}</span>
+                        </p>
+                        <p className="font-mono text-xs text-brand font-bold mt-1.5">
+                          R$ {acc.balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`text-[8px] border px-1.5 py-0.5 rounded uppercase font-mono font-bold ${
+                          acc.type === 'checking' ? 'bg-green-500/10 border-green-500/20 text-green-500' :
+                          acc.type === 'savings' ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' :
+                          acc.type === 'investment' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500 font-extrabold' :
+                          acc.type === 'cash' ? 'bg-teal-500/10 border-teal-500/20 text-teal-500 font-extrabold animate-pulse' :
+                          'bg-neutral-800 border-neutral-700 text-neutral-400'
+                        }`}>
+                          {acc.type === 'checking' ? 'C. Corrente' :
+                           acc.type === 'savings' ? 'Poupança' :
+                           acc.type === 'investment' ? 'Investimento' :
+                           acc.type === 'cash' ? 'Dinheiro Físico' :
+                           'Cartão'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onRemovePluggyAccount(acc.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded hover:bg-red-500/10 text-red-400 hover:text-red-300 transition-all cursor-pointer"
+                          title="Remover conta"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* COMPONENT: TAB ERP INTEGRATION */}
+          {activeTab === 'erp-integration' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="border-b border-[var(--border-soft)] pb-3">
+                <h3 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider">Sincronização com o ERP Corporativo</h3>
+                <p className="text-[10px] text-[var(--text-secondary)] mt-1 leading-relaxed">
+                  Sincronize automaticamente contas de contas a pagar (AP) e contas a receber (AR) e as envie direto para a Vance para conciliação em tempo real.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* ERP Configuration Form */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Selecione o Sistema ERP</label>
+                    <select
+                      value={selectedErp}
+                      onChange={(e) => {
+                        setSelectedErp(e.target.value);
+                        if (e.target.value === 'omie') {
+                          setErpUrl('https://api.omie.com.br/api/v1/');
+                        } else if (e.target.value === 'totvs') {
+                          setErpUrl('https://totvs-on.com/protheus/api/v2/');
+                        } else if (e.target.value === 'contaazul') {
+                          setErpUrl('https://api.contaazul.com/v1/');
+                        } else if (e.target.value === 'bling') {
+                          setErpUrl('https://bling.com.br/Api/v3/');
+                        } else {
+                          setErpUrl('https://api.minhaempresa.com/erp/');
+                        }
+                      }}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-brand"
+                    >
+                      <option value="omie">Omie ERP (Integração Direta)</option>
+                      <option value="totvs">Totvs Protheus / RM Pro</option>
+                      <option value="contaazul">Conta Azul (SaaS Web)</option>
+                      <option value="bling">Bling ERP (e-Commerce / Vendas)</option>
+                      <option value="custom">REST API de ERP Próprio (Customizado)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Endpoint Base REST API do ERP</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[var(--text-muted)]">
+                        <Server size={12} />
+                      </span>
+                      <input
+                        type="url"
+                        value={erpUrl}
+                        onChange={(e) => setErpUrl(e.target.value)}
+                        className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:border-brand font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">App Key / User Token</label>
+                      <input
+                        type="text"
+                        placeholder="Chave do App"
+                        value={erpAppKey}
+                        onChange={(e) => setErpAppKey(e.target.value)}
+                        className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-brand font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">App Secret / API Secret</label>
+                      <input
+                        type="password"
+                        placeholder="Chave de segurança"
+                        value={erpToken}
+                        onChange={(e) => setErpToken(e.target.value)}
+                        className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 px-3 text-xs focus:outline-none focus:border-brand font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)] block">Sincronizar Mapeamento de Entidades</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={syncEntities.ap}
+                          onChange={() => setSyncEntities(p => ({ ...p, ap: !p.ap }))}
+                          className="accent-brand"
+                        />
+                        <span className="text-[10px] text-[var(--text-secondary)]">Contas a Pagar</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={syncEntities.ar}
+                          onChange={() => setSyncEntities(p => ({ ...p, ar: !p.ar }))}
+                          className="accent-brand"
+                        />
+                        <span className="text-[10px] text-[var(--text-secondary)]">Contas a Receber</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={syncEntities.clients_vendors}
+                          onChange={() => setSyncEntities(p => ({ ...p, clients_vendors: !p.clients_vendors }))}
+                          className="accent-brand"
+                        />
+                        <span className="text-[10px] text-[var(--text-secondary)]">Clientes &amp; Fornecedores</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={syncEntities.bank_statements}
+                          onChange={() => setSyncEntities(p => ({ ...p, bank_statements: !p.bank_statements }))}
+                          className="accent-brand"
+                        />
+                        <span className="text-[10px] text-[var(--text-secondary)]">Extratos de Lançamento</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div>
+                    <button
+                      type="button"
+                      onClick={handleTestErp}
+                      disabled={testingErp}
+                      className="w-full py-2.5 bg-brand hover:bg-brand/90 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50 font-semibold"
+                    >
+                      {testingErp ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          Conectando ERP...
+                        </>
+                      ) : (
+                        <>
+                          <Server size={13} />
+                          Testar Conexão ERP
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* ERP Debug Logger */}
+                <div className="bg-black/40 rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
+                  <div className="space-y-2 flex-1 overflow-y-auto text-[10px]">
+                    <div className="flex items-center justify-between text-[var(--text-secondary)] border-b border-[var(--border-soft)] pb-1.5 mb-2 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <Terminal size={12} className="text-[var(--text-muted)]" />
+                        <span>Log de Sincronia de ERP</span>
+                      </div>
+                      {erpStatus === 'connected' && (
+                        <span className="text-[8px] bg-green-500/15 text-green-500 border border-green-500/20 px-1 rounded uppercase font-bold">
+                          Ativo
+                        </span>
+                      )}
+                    </div>
+                    {erpLogs.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center text-center text-[var(--text-muted)] px-4 pt-10">
+                        <Database size={24} className="mb-2 text-[var(--text-muted)]" />
+                        <p className="text-[9px]">Aguardando conexão com o ERP...</p>
+                        <p className="text-[8px] text-[var(--text-muted)] mt-1">Configure as chaves e clique em &quot;Testar Conexão ERP&quot;.</p>
+                      </div>
+                    ) : (
+                      erpLogs.map((log, idx) => (
+                        <div key={idx} className="space-y-0.5 animate-fade-in">
+                          <span className="text-[var(--text-muted)]">[{log.time}]</span>{' '}
+                          <span
+                            className={`font-semibold ${
+                              log.type === 'success'
+                                ? 'text-green-500'
+                                : log.type === 'error'
+                                ? 'text-red-500'
+                                : log.type === 'warning'
+                                ? 'text-yellow-500'
+                                : 'text-[var(--text-primary)]'
+                            }`}
+                          >
+                            {log.type.toUpperCase()}:
+                          </span>{' '}
+                          <span className="text-[var(--text-secondary)] leading-relaxed">{log.message}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {erpStatus === 'connected' && (
+                    <div className="p-2 bg-green-500/5 rounded border border-green-500/10 text-[9px] text-green-400 leading-relaxed shrink-0">
+                      <strong>Conexão operacional activa!</strong> A Vance sincronizará faturas e pagamentos a cada {syncFrequency === 'daily' ? '24 horas (noturno)' : '1 hora'} de forma autônoma.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 

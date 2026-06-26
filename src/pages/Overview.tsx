@@ -1,10 +1,8 @@
-'use client';
-
 import React from 'react';
-import { Transaction, Alert } from '@/lib/types';
-import CurrencyDisplay from '@/components/finance/CurrencyDisplay';
-import { CashflowChart, CategoryBreakdownChart } from '@/components/finance/Charts';
-import { formatCurrency, formatDate } from '@/lib/formatters';
+import { Transaction, Alert } from '../types';
+import CurrencyDisplay from '../components/finance/CurrencyDisplay';
+import { CashflowChart, CategoryBreakdownChart } from '../components/finance/Charts';
+import { formatCurrency, formatDate } from '../lib/formatters';
 import { ArrowUpRight, ArrowDownRight, RefreshCw, AlertTriangle, FileSpreadsheet, CheckCircle, HelpCircle, ArrowRight } from 'lucide-react';
 
 interface OverviewProps {

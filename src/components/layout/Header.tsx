@@ -1,9 +1,7 @@
-'use client';
-
 import React, { useState } from 'react';
-import { Sun, Moon, Bell, Search, AlertOctagon, HelpCircle, Check, ShieldAlert, ArrowUpRight, Menu } from 'lucide-react';
-import { Alert, PluggyAccount } from '@/lib/types';
-import { formatCurrency } from '@/lib/formatters';
+import { Sun, Moon, Bell, Search, AlertOctagon, HelpCircle, Check, ShieldAlert, ArrowUpRight, Menu, LogOut, Shield } from 'lucide-react';
+import { Alert, PluggyAccount, User, Company, UserRole } from '../../types';
+import { formatCurrency } from '../../lib/formatters';
 
 interface HeaderProps {
   currentView: string;
@@ -14,6 +12,13 @@ interface HeaderProps {
   onNavigate: (view: string) => void;
   companyName: string;
   onToggleMobileMenu?: () => void;
+  currentUser: User | null;
+  onLogout?: () => void;
+  onOpenSettingsModal?: () => void;
+  companies: Company[];
+  selectedCompanyCnpj: string;
+  onSelectCompanyCnpj: (cnpj: string) => void;
+  onChangeRole?: (role: UserRole) => void;
 }
 
 export default function Header({
@@ -24,9 +29,17 @@ export default function Header({
   onResolveAlert,
   onNavigate,
   companyName,
-  onToggleMobileMenu
+  onToggleMobileMenu,
+  currentUser,
+  onLogout,
+  onOpenSettingsModal,
+  companies,
+  selectedCompanyCnpj,
+  onSelectCompanyCnpj,
+  onChangeRole
 }: HeaderProps) {
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Breadcrumb computations
@@ -35,7 +48,7 @@ export default function Header({
     if (currentView === 'overview') {
       list.push({ label: 'Monitor Geral', id: 'overview' });
     } else if (currentView === 'registers') {
-      list.push({ label: 'Cadastros AP/AR', id: 'registers' });
+      list.push({ label: 'Contas a PAGAR/RECEBER', id: 'registers' });
     } else if (currentView === 'reconciliation') {
       list.push({ label: 'Fila de Conciliação', id: 'reconciliation' });
     } else if (currentView === 'cashflow') {
@@ -117,13 +130,23 @@ export default function Header({
           ))}
         </div>
 
-        {/* Center Area: Selected Company Indicator */}
-        <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-black/15 rounded-full border border-[var(--border-soft)]">
-          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-          <span className="text-[11px] font-medium font-sans text-[var(--text-secondary)]">Empresa Ativa:</span>
-          <span className="text-[11px] font-bold font-sans text-[var(--text-primary)] text-teal-500 uppercase">
-            {companyName}
-          </span>
+        {/* Center Area: Selected Company Indicator & Selector */}
+        <div className="flex items-center gap-2 px-3 py-1 bg-black/30 rounded-full border border-[var(--border-soft)]">
+          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0"></span>
+          <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Visão:</span>
+          <select
+            value={selectedCompanyCnpj}
+            onChange={(e) => onSelectCompanyCnpj(e.target.value)}
+            className="bg-transparent border-none text-[11px] font-bold text-teal-400 focus:outline-none pr-1 cursor-pointer hover:text-teal-300 transition-colors uppercase font-sans select-none"
+            id="global-cnpj-selector"
+          >
+            <option value="consolidado" className="bg-[#111] text-[var(--text-primary)]">🌐 TODOS OS CNPJs (Consolidado)</option>
+            {companies?.map(company => (
+              <option key={company.cnpj} value={company.cnpj} className="bg-[#111] text-[var(--text-primary)]">
+                🏢 {company.nomeFantasia} ({company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")})
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Right Area: Actions (Search, Notification, Theme, Avatar) */}
@@ -140,6 +163,8 @@ export default function Header({
               className="h-9 w-64 pl-9 pr-4 text-xs rounded-lg border border-[var(--border-soft)] bg-[var(--bg-input)] text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-all"
             />
           </div>
+
+
 
           {/* Dark / Light Toggle */}
           <button
@@ -214,17 +239,68 @@ export default function Header({
           </div>
 
           {/* User profile dropdown simulator */}
-          <div className="flex items-center gap-2 pl-2 border-l border-[var(--border-soft)]">
-            <img
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100"
-              alt="Avatar do Analista"
-              referrerPolicy="no-referrer"
-              className="w-8 h-8 rounded-full border border-teal-500/30 object-cover"
-            />
-            <div className="hidden xl:block text-left">
-              <p className="text-xs font-bold text-[var(--text-primary)]">Diego Terrani</p>
-              <p className="text-[10px] text-[var(--text-secondary)]">Administrador</p>
-            </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowUserDropdown(!showUserDropdown)}
+              className="flex items-center gap-2 pl-2 border-l border-[var(--border-soft)] hover:opacity-85 transition-opacity cursor-pointer text-left focus:outline-none"
+            >
+              <img
+                src={currentUser?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100"}
+                alt={currentUser?.name || "User Avatar"}
+                referrerPolicy="no-referrer"
+                className="w-8 h-8 rounded-full border border-teal-500/30 object-cover flex-shrink-0"
+              />
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-bold text-[var(--text-primary)] max-w-[120px] truncate">{currentUser?.name || 'Visitante'}</p>
+                <p className="text-[10px] text-[var(--text-secondary)] capitalize">{currentUser?.role || 'Acesso'}</p>
+              </div>
+            </button>
+
+            {showUserDropdown && (
+              <div className="absolute right-0 mt-2 w-56 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-2xl z-50 overflow-hidden text-xs py-1">
+                <div className="px-3 py-2 border-b border-[var(--border-soft)]">
+                  <p className="font-bold text-[var(--text-primary)] truncate">{currentUser?.name}</p>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate">{currentUser?.email}</p>
+                  <span className="inline-flex mt-1 px-1.5 py-0.5 text-[8px] font-mono rounded bg-brand/10 text-brand font-bold uppercase">
+                    Cargo: {currentUser?.role}
+                  </span>
+                </div>
+                
+                {onChangeRole && (
+                  <div className="px-3 py-2.5 border-b border-[var(--border-soft)] bg-black/15">
+                    <p className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                      <Shield size={10} className="text-teal-500 animate-pulse" />
+                      Trocar Papel (Sandbox)
+                    </p>
+                    <select
+                      value={currentUser?.role}
+                      onChange={(e) => {
+                        onChangeRole(e.target.value as UserRole);
+                      }}
+                      className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded px-2 py-1 text-[11px] font-medium focus:outline-none focus:border-brand cursor-pointer"
+                    >
+                      <option value="viewer">Observador (Viewer)</option>
+                      <option value="analista">Analista</option>
+                      <option value="tesouraria">Tesoureiro</option>
+                      <option value="gerencia">Gerência</option>
+                      <option value="diretor">Diretor</option>
+                      <option value="admin">Administrador</option>
+                    </select>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setShowUserDropdown(false);
+                    onLogout?.();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left text-red-400 hover:bg-neutral-900 hover:text-red-300 transition-colors cursor-pointer border-none bg-transparent mt-1"
+                >
+                  <LogOut size={13} />
+                  <span>Sair da Conta</span>
+                </button>
+              </div>
+            )}
           </div>
 
         </div>

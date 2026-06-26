@@ -1,0 +1,6 @@
+{
+  "name": "VANCE",
+  "description": "VANCE - Plataforma Financeira Inteligente | Gestão de Caixa, Conciliação de Fluxo e Emissão de Notas",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

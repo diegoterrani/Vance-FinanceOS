@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import Logo from '@/components/Logo';
+import Logo from '../Logo';
 import { LayoutDashboard, FileSpreadsheet, TrendingUp, AlertTriangle, Settings, ChevronLeft, ChevronRight, Wallet, ClipboardList, X } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,7 +23,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const menuItems = [
     { id: 'overview', label: 'Monitor Geral', icon: LayoutDashboard },
-    { id: 'registers', label: 'Cadastros AP/AR', icon: ClipboardList },
+    { id: 'registers', label: 'Contas a PAGAR/RECEBER', icon: ClipboardList },
     { id: 'reconciliation', label: 'Conciliação Bancária', icon: FileSpreadsheet, badge: 23 },
     { id: 'cashflow', label: 'Fluxo de Caixa', icon: TrendingUp },
     { id: 'alerts', label: 'Central de Alertas', icon: AlertTriangle, badge: alertCount, badgeType: 'alert' },

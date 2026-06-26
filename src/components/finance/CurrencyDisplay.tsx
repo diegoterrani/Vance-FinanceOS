@@ -1,7 +1,5 @@
-'use client';
-
 import React from 'react';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency } from '../../lib/formatters';
 
 interface CurrencyDisplayProps {
   value: number;

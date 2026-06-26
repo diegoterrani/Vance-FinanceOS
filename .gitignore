@@ -1,29 +1,8 @@
-# Next.js
-.next/
-out/
-build/
-
-# Node
 node_modules/
-npm-debug.log*
-
-# Env — NUNCA commitar secrets
-.env
-.env.local
-.env.*.local
-.env.production
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
-next-env.d.ts
-
-# OS
+build/
+dist/
+coverage/
 .DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
+*.log
+.env*
+!.env.example

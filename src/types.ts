@@ -15,6 +15,7 @@ export interface Transaction {
   score?: number; // confidence score for auto/suggested matching
   externalId?: string;
   matchedId?: string;
+  companyCnpj?: string; // Associated CNPJ of the company
 }
 
 export type UserRole = 'viewer' | 'analista' | 'tesouraria' | 'gerencia' | 'diretor' | 'admin';
@@ -45,16 +46,30 @@ export interface Alert {
   date: string;
   actionUrl?: string;
   snoozedUntil?: string;
+  companyCnpj?: string; // Associated CNPJ of the company
+}
+
+export interface Company {
+  cnpj: string;
+  razaoSocial: string;
+  nomeFantasia: string;
+  regime: string;
+  minBalanceAlert: number;
+  timezone: string;
+  certificateUploaded: boolean;
+  certificateExpiry?: string;
+  logo?: string;
 }
 
 export interface PluggyAccount {
   id: string;
   name: string;
-  type: 'checking' | 'savings' | 'credit_card';
+  type: 'checking' | 'savings' | 'credit_card' | 'investment' | 'cash';
   bankName: string;
   balance: number;
   syncStatus: 'success' | 'failed' | 'syncing';
   lastSync: string;
+  companyCnpj?: string; // Associated CNPJ of the company
 }
 
 export interface WebhookLog {
@@ -81,15 +96,5 @@ export interface AppState {
   theme: 'dark' | 'light';
   sidebarOpen: boolean;
   density: 'compact' | 'standard' | 'comfortable';
-  selectedCompany: {
-    cnpj: string;
-    razaoSocial: string;
-    nomeFantasia: string;
-    regime: string;
-    logo?: string;
-    minBalanceAlert: number;
-    timezone: string;
-    certificateUploaded: boolean;
-    certificateExpiry?: string;
-  };
+  selectedCompany: Company;
 }

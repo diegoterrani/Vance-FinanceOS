@@ -1,7 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
-import { Alert, AlertLevel } from '@/lib/types';
+import { Alert, AlertLevel } from '../types';
 import { AlertTriangle, ShieldAlert, CheckCircle, Info, Filter, Clock, Check, BellRing } from 'lucide-react';
 
 interface AlertsProps {
