@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 
@@ -18,10 +19,14 @@ const ai = new GoogleGenAI({
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT || 3000);
 
   // Use JSON middleware with increased payload limit for base64 files (up to 15MB)
   app.use(express.json({ limit: '15mb' }));
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, app: 'Vance FinanceOS Angular API' });
+  });
 
   // API endpoint for document import
   app.post("/api/import-document", async (req, res) => {
@@ -117,19 +122,22 @@ Extraia as seguintes propriedades:
     }
   });
 
-  // Serve Vite in dev, static files in prod
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer: createViteServer } = await import("vite");
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
+  // Angular serves the frontend in dev. In production, Express serves the built SPA.
+  if (process.env.NODE_ENV === "production") {
+    const browserDist = path.join(process.cwd(), "dist", "vance-financeos", "browser");
+    const legacyDist = path.join(process.cwd(), "dist", "vance-financeos");
+    const distPath = fs.existsSync(path.join(browserDist, "index.html")) ? browserDist : legacyDist;
+
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get('*', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    app.get('/', (_req, res) => {
+      res.json({
+        ok: true,
+        message: 'API em execução. Use npm run dev:web para abrir o Angular em http://localhost:4200.'
+      });
     });
   }
 
