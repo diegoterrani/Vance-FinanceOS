@@ -1,4 +1,4 @@
-import { extractDocument } from "./_gemini";
+import { extractDocument } from "./_llm";
 
 // Vercel Serverless Function. Replaces the Express route in server.ts for
 // production. server.ts is kept only for local `npm run dev`.
@@ -6,6 +6,7 @@ import { extractDocument } from "./_gemini";
 // NOTE: Vercel serverless request bodies are capped at ~4.5MB. The original
 // Express server allowed 15MB base64 payloads. Large documents may need a
 // direct-to-storage upload flow (Supabase Storage) before extraction.
+// Extraction is powered by OpenRouter (see api/_llm.ts).
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");

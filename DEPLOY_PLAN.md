@@ -6,13 +6,13 @@
 
 | Item | Situação | Impacto no deploy |
 |---|---|---|
-| **Stack** | Vite + React 19 (SPA) + Express (`server.ts`) com 1 rota `/api/import-document` que chama o Gemini | Não é Angular |
+| **Stack** | Vite + React 19 (SPA) + Express (`server.ts`) com 1 rota `/api/import-document` que chama o LLM via OpenRouter | Não é Angular |
 | **Vercel** | Projeto existe (`prj_2iGVEJpUJAboIQ9UxPewkicr6wIx`, team `team_ekt4lqxDYpjWzuYCpL5VkFN3`), framework **detectado errado como `angular`**, Node 24.x, `live: false` | Precisa reconfigurar build/framework |
 | **Servidor** | `server.ts` usa `app.listen(3000)` (modelo container/Cloud Run) | **Não roda em serverless do Vercel como está** — precisa virar Vercel Function |
 | **Auth** | Falsa: `localStorage['vance_session_user']`, lista de usuários mock, senha ignorada | Não há autenticação real |
 | **Dados** | 100% mock em memória (`initialTransactions`, `initialUsers`, `initialAlerts`, `initialPluggyAccounts`, etc. em `src/App.tsx`) — nada persiste | Sem backend de dados |
 | **Supabase** | Projeto `ACTIVE_HEALTHY`, região `sa-east-1`, Postgres 17, **banco vazio (0 tabelas)** | Provisionado mas **não usado em lugar nenhum do código** |
-| **Segredos** | `GEMINI_API_KEY` (server-side), `APP_URL` | Configurar no Vercel |
+| **Segredos** | `OPENROUTER_API_KEY` (server-side), `APP_URL` | Configurar no Vercel |
 
 **Conclusão honesta:** "deploy com Vercel + Supabase" não é só configuração. Pôr a app no ar (Track A) é rápido. Fazer ela *usar* o Supabase (Track B: auth real + persistência) é desenvolvimento novo. O plano separa os dois para você poder ter URL no ar hoje e migrar o backend depois.
 
@@ -20,20 +20,20 @@
 
 ## 2. Decisões de arquitetura (resolver antes de começar)
 
-1. **Como rodar a rota Gemini no Vercel.** O Express com `app.listen` não funciona em serverless. Duas opções:
+1. **Como rodar a rota de extração (LLM) no Vercel.** O Express com `app.listen` não funciona em serverless. Duas opções:
    - **(Recomendado) Converter para Vercel Function:** mover a lógica de `/api/import-document` para `api/import-document.ts` (handler serverless). Frontend vira estático (`vite build` → `dist`). `server.ts` fica só para dev local.
    - Alternativa: empacotar o Express com `@vercel/node` exportando o `app` como handler. Mais atrito; não recomendado.
 2. **Papel do Supabase.** Banco de dados + Auth + RLS. Substitui os arrays mock e o login falso.
-3. **Chave do Gemini é server-side.** Nunca expor no cliente. Fica só na Vercel Function (`GEMINI_API_KEY`, sem prefixo `VITE_`).
+3. **Chave do OpenRouter é server-side.** Nunca expor no cliente. Fica só na Vercel Function (`OPENROUTER_API_KEY`, sem prefixo `VITE_`). Modelos: `nvidia/nemotron-3-ultra-550b-a55b:free` (primário) com fallback `openrouter/owl-alpha`.
 
 ---
 
 ## 3. Track A — Deploy no Vercel (app atual, sem Supabase ainda)
 
-Objetivo: URL de produção funcionando, com o import de documentos via Gemini.
+Objetivo: URL de produção funcionando, com o import de documentos via OpenRouter.
 
-### A1. Converter a rota Gemini para Vercel Function
-Criar `api/import-document.ts` com o conteúdo do handler de `server.ts` (o `systemInstruction`, o `responseSchema` e a chamada `ai.models.generateContent` permanecem iguais), exportando `export default function handler(req, res)`. Manter `server.ts` apenas para `npm run dev`.
+### A1. Converter a rota de extração para Vercel Function
+Criar `api/import-document.ts` (handler serverless) que reusa `api/_llm.ts` (chamada ao OpenRouter via Chat Completions). Manter `server.ts` apenas para `npm run dev`.
 
 ### A2. `vercel.json` (frontend estático + função)
 ```json
@@ -54,7 +54,8 @@ No painel do projeto → Settings → Build & Development:
 - Install Command: `npm install`
 
 ### A4. Variável de ambiente (Production + Preview)
-- `GEMINI_API_KEY` = *(sua chave do Gemini)* — escopo: Production, Preview. **Não** marcar como exposta ao browser.
+- `OPENROUTER_API_KEY` = *(sua chave do OpenRouter)* — escopo: Production, Preview. **Não** marcar como exposta ao browser.
+- (Opcional) `OPENROUTER_MODEL` para sobrescrever o modelo primário.
 
 ### A5. Deploy
 - Conectar o repo GitHub ao projeto Vercel (deploy automático no push da `main`), ou `vercel --prod` via CLI.
@@ -109,7 +110,8 @@ Modelar a partir de `src/types.ts`. Tabelas no schema `public`, todas com RLS li
 
 | Variável | Onde | Escopo | Valor |
 |---|---|---|---|
-| `GEMINI_API_KEY` | Vercel (server) | Production, Preview | *(secreta — sua chave)* |
+| `OPENROUTER_API_KEY` | Vercel (server) | Production, Preview | *(secreta — sua chave OpenRouter `sk-or-v1-...`)* |
+| `OPENROUTER_MODEL` (opcional) | Vercel (server) | Production, Preview | default `nvidia/nemotron-3-ultra-550b-a55b:free` |
 | `VITE_SUPABASE_URL` | Vercel (client) | Production, Preview | `https://gltffiwkzdvsxruexklw.supabase.co` |
 | `VITE_SUPABASE_ANON_KEY` | Vercel (client) | Production, Preview | `sb_publishable_02MJNI_S1n04FcZqOX9UJQ_-ZmwO5Rm` |
 | `SUPABASE_SERVICE_ROLE_KEY` | Vercel (server) — só se a função precisar bypass de RLS | Production | *(secreta — nunca no cliente)* |
@@ -120,7 +122,7 @@ Modelar a partir de `src/types.ts`. Tabelas no schema `public`, todas com RLS li
 
 ## 6. Ordem de execução recomendada
 
-1. **Track A completo** → URL de produção no ar com Gemini funcionando. (~meio dia)
+1. **Track A completo** → URL de produção no ar com extração via OpenRouter funcionando. (~meio dia)
 2. **B1–B3** → conexão Supabase + schema + RLS (sem mexer na UI ainda). Validar com Security Advisor.
 3. **B4** → auth real (maior risco de regressão; testar fluxo login/signup/logout).
 4. **B5** → migrar leitura/escrita de dados, tabela por tabela (começar por `transactions`).
@@ -132,7 +134,8 @@ Modelar a partir de `src/types.ts`. Tabelas no schema `public`, todas com RLS li
 
 - **`server.ts` não vai pra produção no Vercel** — é só dev. Se esquecer e configurar `npm start`, o deploy falha.
 - **Segurança de dados financeiros:** sem RLS bem feita, qualquer usuário lê tudo. RLS é bloqueante, não opcional.
-- **Chave do Gemini:** se vazar para o bundle do cliente (prefixo errado), qualquer um usa sua cota. Manter só na função.
+- **Chave do OpenRouter:** se vazar para o bundle do cliente (prefixo errado), qualquer um usa sua cota. Manter só na função (`OPENROUTER_API_KEY`, sem `VITE_`).
+- **Suporte a documento nos modelos:** o import lê PDF/imagem de boletos e NFs. `api/_llm.ts` envia imagens como `image_url` e PDFs via plugin `file-parser` do OpenRouter. Confirme que o modelo escolhido aceita esse input — modelos só-texto podem falhar na extração de imagens. Ajuste `OPENROUTER_MODEL` se necessário.
 - **Migração de auth:** a app hoje "cria usuário transiente" no login. Esse comportamento some com Supabase Auth — alinhar expectativa.
 - **Região:** Supabase em `sa-east-1` (São Paulo) é bom para latência no Brasil; escolher região Vercel próxima (ou usar funções na região `gru1`).
 ```

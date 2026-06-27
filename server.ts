@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
-import { extractDocument } from "./api/_gemini";
+import { extractDocument } from "./api/_llm";
 
 dotenv.config();
 
