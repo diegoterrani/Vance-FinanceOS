@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { formatCNPJ, formatCurrency, formatDate, formatDateTime } from '../lib/formatters';
 import { AppState, User, PluggyAccount, WebhookLog, AuditLog, Company } from '../types';
 import { hasPermission, getRoleDisplayName } from '../lib/permissions';
+import { supabase } from '../lib/supabase';
 import {
   Building2, Users, Cable, CreditCard, Bell, KeyRound, Eye, ShieldCheck, Palette,
   Upload, Plus, Shield, RefreshCw, Smartphone, Key, Lock, Mail, Trash2, Clipboard,
@@ -254,29 +255,71 @@ export default function Settings({
   // 6. TABS: SECURITY & MFA
   // ----------------------------------------------------
   const [mfaEnabled, setMfaEnabled] = useState(false);
-  const [mfaSecret, setMfaSecret] = useState('JBSWY3DPEHPK3PXP');
+  const [mfaSecret, setMfaSecret] = useState('');
+  const [mfaFactorId, setMfaFactorId] = useState('');
   const [totpInput, setTotpInput] = useState('');
-  const [activeSessions, setActiveSessions] = useState([
-    { id: 'sess-1', device: 'Chrome / macOS Ventura', location: 'São Paulo, BR', current: true },
-    { id: 'sess-2', device: 'Safari / iPhone 15 Pro', location: 'Campinas, BR', current: false },
-    { id: 'sess-3', device: 'Firefox / Linux Mint', location: 'Belo Horizonte, BR', current: false }
-  ]);
+  const [mfaBusy, setMfaBusy] = useState(false);
 
-  const handleToggleMfa = () => {
+  // Real MFA via Supabase Auth: detect verified factor, else enroll a fresh
+  // TOTP factor so the secret can be shown to the user.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.mfa.listFactors();
+        const totp = (data?.totp || []) as any[];
+        const verified = totp.find(f => f.status === 'verified');
+        if (verified) {
+          if (active) { setMfaEnabled(true); setMfaFactorId(verified.id); }
+          return;
+        }
+        for (const f of totp.filter(f => f.status === 'unverified')) {
+          try { await supabase.auth.mfa.unenroll({ factorId: f.id }); } catch { /* ignore */ }
+        }
+        const { data: en, error } = await supabase.auth.mfa.enroll({ factorType: 'totp' });
+        if (!error && en && active) {
+          setMfaFactorId(en.id);
+          setMfaSecret((en as any).totp?.secret || '');
+        }
+      } catch { /* MFA may be unavailable; ignore */ }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  const handleToggleMfa = async () => {
+    if (mfaBusy) return;
     if (mfaEnabled) {
-      setMfaEnabled(false);
-      setTotpInput('');
-    } else {
-      if (totpInput === '123456') { // simulate validation
-        setMfaEnabled(true);
-      } else {
-        alert('Código de verificação TOTP inválido no simulador. Código padrão de teste: 123456');
-      }
+      setMfaBusy(true);
+      try {
+        if (mfaFactorId) await supabase.auth.mfa.unenroll({ factorId: mfaFactorId });
+        setMfaEnabled(false); setMfaSecret(''); setMfaFactorId(''); setTotpInput('');
+      } catch (e: any) {
+        alert('Falha ao desativar 2FA: ' + (e?.message || e));
+      } finally { setMfaBusy(false); }
+      return;
     }
+    if (!mfaFactorId) { alert('Aguarde a geração da chave 2FA e recarregue a aba.'); return; }
+    if (!/^\d{6}$/.test(totpInput)) { alert('Digite o código de 6 dígitos do seu app autenticador.'); return; }
+    setMfaBusy(true);
+    try {
+      const ch = await supabase.auth.mfa.challenge({ factorId: mfaFactorId });
+      if (ch.error) throw ch.error;
+      const vr = await supabase.auth.mfa.verify({ factorId: mfaFactorId, challengeId: ch.data.id, code: totpInput });
+      if (vr.error) throw vr.error;
+      setMfaEnabled(true); setTotpInput('');
+    } catch (e: any) {
+      alert('Código inválido ou expirado: ' + (e?.message || e));
+    } finally { setMfaBusy(false); }
   };
 
-  const handleTerminateSession = (id: string) => {
-    setActiveSessions(prev => prev.filter(s => s.id !== id));
+  // Supabase cannot list per-device sessions client-side; show the current one.
+  const activeSessions = [
+    { id: 'current', device: currentUser?.device || 'Este dispositivo', location: 'Sessão atual', current: true },
+  ];
+
+  // Real "sign out everywhere".
+  const handleTerminateSession = async (_id?: string) => {
+    try { await supabase.auth.signOut({ scope: 'global' } as any); } catch { /* ignore */ }
   };
 
   // ----------------------------------------------------
@@ -291,18 +334,27 @@ export default function Settings({
   const [lgpdRequestSuccess, setLgpdRequestSuccess] = useState(false);
   const [lgpdTimer, setLgpdTimer] = useState(0);
 
+  // Real LGPD export: download a JSON file with the user's accessible data.
   const handleExportDataRequest = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      user: currentUser,
+      companies,
+      accounts: pluggyAccounts,
+      auditLogs,
+      webhookLogs,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vance-export-${currentUser?.email || 'dados'}-${Date.now()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
     setLgpdRequestSuccess(true);
-    setLgpdTimer(3);
-    const interval = setInterval(() => {
-      setLgpdTimer(prev => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    setLgpdTimer(0);
   };
 
   // ----------------------------------------------------
@@ -449,47 +501,42 @@ export default function Settings({
     }, 2000);
   };
 
-  const handleTestErp = () => {
+  const handleTestErp = async () => {
     if (testingErp) return;
     setTestingErp(true);
     setErpLogs([
-      { time: getNowTime(), type: 'info', message: `Estabelecendo sincronia de dados com ${getErpFullName(selectedErp)}...` }
+      { time: getNowTime(), type: 'info', message: `Conectando ao endpoint REST de ${getErpFullName(selectedErp)}...` }
     ]);
 
-    setTimeout(() => {
+    if (!erpUrl) {
+      setErpLogs(prev => [...prev, { time: getNowTime(), type: 'error', message: 'Informe a URL do endpoint do ERP.' }]);
+      setErpStatus('error');
+      setTestingErp(false);
+      return;
+    }
+
+    try {
+      // Real outbound HTTP request to the configured ERP endpoint.
+      const resp = await fetch('/api/test-integration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'erp', url: erpUrl, token: erpToken, appKey: erpAppKey })
+      });
+      const j = await resp.json();
       setErpLogs(prev => [
         ...prev,
-        { time: getNowTime(), type: 'info', message: `Acessando endpoint REST: ${erpUrl}` },
-        { time: getNowTime(), type: 'info', message: `Validando API Token: ${erpToken ? '••••••••' : 'Em branco'}` }
+        { time: getNowTime(), type: 'info', message: `Requisição real enviada a: ${erpUrl}` },
+        { time: getNowTime(), type: j.ok ? 'success' : 'error', message: `${j.message} (HTTP ${j.status}, ${j.latencyMs}ms)` }
       ]);
-    }, 500);
-
-    setTimeout(() => {
-      if (!erpToken && selectedErp !== 'custom') {
-        setErpLogs(prev => [
-          ...prev,
-          { time: getNowTime(), type: 'error', message: 'Falha na autenticação: API Token é obrigatório para produção.' }
-        ]);
-        setErpStatus('error');
-        setTestingErp(false);
-      } else {
-        setErpLogs(prev => [
-          ...prev,
-          { time: getNowTime(), type: 'info', message: 'Conectado! Mapeando entidades de contas a pagar (AP) e receber (AR)...' },
-          { time: getNowTime(), type: 'success', message: 'Campos customizados mapeados e integrados com sucesso!' }
-        ]);
-        
-        setTimeout(() => {
-          setErpLogs(prev => [
-            ...prev,
-            { time: getNowTime(), type: 'success', message: 'Sincronização de ERP estabelecida com status operacional ativo!' }
-          ]);
-          setErpStatus('connected');
-          onSaveIntegration?.('erp', selectedErp, { erpUrl, erpToken, erpAppKey, syncFrequency, syncEntities }, 'connected');
-          setTestingErp(false);
-        }, 800);
-      }
-    }, 1400);
+      setErpStatus(j.ok ? 'connected' : 'error');
+      // Persist config regardless, so it is not lost.
+      onSaveIntegration?.('erp', selectedErp, { erpUrl, erpToken, erpAppKey, syncFrequency, syncEntities }, j.ok ? 'connected' : 'error');
+    } catch (e: any) {
+      setErpLogs(prev => [...prev, { time: getNowTime(), type: 'error', message: `Falha na chamada: ${e?.message || e}` }]);
+      setErpStatus('error');
+    } finally {
+      setTestingErp(false);
+    }
   };
 
   const handleAddAccountSubmit = (e: React.FormEvent) => {
