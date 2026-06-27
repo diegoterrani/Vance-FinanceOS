@@ -1,4 +1,4 @@
-import { extractDocument } from "./_llm";
+import { extractDocument } from "./_llm.js";
 
 // Vercel Serverless Function. Replaces the Express route in server.ts for
 // production. server.ts is kept only for local `npm run dev`.
