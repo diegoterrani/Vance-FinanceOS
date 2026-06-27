@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import Overview from './pages/Overview';
@@ -8,253 +9,12 @@ import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Registers from './pages/Registers';
 import Login from './pages/Login';
+import Logo from './components/Logo';
 import { Transaction, Alert, User, PluggyAccount, WebhookLog, AuditLog, AppState, Company } from './types';
+import { supabase } from './lib/supabase';
+import * as db from './lib/db';
 
-// App initialization mock database
-const initialTransactions: Transaction[] = [
-  {
-    id: 'tx-1',
-    description: 'PIX RECEBIDO CONTRATO MENSAL SUITE',
-    bank: 'XP Investimentos',
-    bankCode: '102',
-    direction: 'inflow',
-    status: 'matched',
-    value: 18200.00,
-    date: '2026-06-21',
-    reference: 'PIX EM ENTRADA RECORRENTE',
-    category: 'Contratos Clientes',
-    score: 0.98,
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'tx-2',
-    description: 'PAGAMENTO FORNECEDOR NUVEM HOSTING',
-    bank: 'Itaú Unibanco S.A.',
-    bankCode: '341',
-    direction: 'outflow',
-    status: 'matched',
-    value: -4400.00,
-    date: '2026-06-20',
-    reference: 'AWS HOSTING CLOUD RUN DEBITO',
-    category: 'Sistemas e Softwares',
-    score: 0.91,
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'tx-3',
-    description: 'TRANSFERENCIA TED ENTRADA ADIANTAMENTO',
-    bank: 'Itaú Unibanco S.A.',
-    bankCode: '341',
-    direction: 'inflow',
-    status: 'pending',
-    value: 12500.00,
-    date: '2026-06-21',
-    reference: 'TED STRIPE PAYMENTS INBOUND',
-    category: 'Contratos Clientes',
-    score: 0.78,
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'tx-4',
-    description: 'IMPOSTO GUIA DAS RECOLHIMENTO MENSAL',
-    bank: 'Banco do Brasil S.A.',
-    bankCode: '001',
-    direction: 'outflow',
-    status: 'matched',
-    value: -10300.00,
-    date: '2026-06-19',
-    reference: 'PAGAMENTO GUIA SIMPLES DAS SFN',
-    category: 'Impostos e Contribuições',
-    score: 0.99,
-    companyCnpj: '98765432000100'
-  },
-  {
-    id: 'tx-5',
-    description: 'RETIRADA PRO LABORE SOCIO INTERNO',
-    bank: 'Itaú Unibanco S.A.',
-    bankCode: '341',
-    direction: 'outflow',
-    status: 'pending',
-    value: -8500.00,
-    date: '2026-06-18',
-    reference: 'REMUNERACAO PROLABORE MENSAL',
-    category: 'Folha de Pagamento',
-    score: 0.65,
-    companyCnpj: '98765432000100'
-  },
-  {
-    id: 'tx-6',
-    description: 'RENDIMENTOS APLICAÇÃO CDI DIÁRIA',
-    bank: 'XP Investimentos',
-    bankCode: '102',
-    direction: 'inflow',
-    status: 'matched',
-    value: 1840.00,
-    date: '2026-06-17',
-    reference: 'CDI XP INVESTIMENTOS CDB LIQUIDO',
-    category: 'Juros e Rendimentos',
-    score: 0.95,
-    companyCnpj: '98765432000100'
-  }
-];
-
-const initialAlerts: Alert[] = [
-  {
-    id: 'al-1',
-    title: 'Saldo Itaú abaixo do limite de segurança',
-    description: 'O saldo sincronizado via API Bancária Direta (R$ 4.200,00) está inferior à margem parametrizada de R$ 10.000,00.',
-    level: 'critical',
-    status: 'active',
-    category: 'API Bancária',
-    date: '2026-06-21',
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'al-2',
-    title: 'Duplicata Fornecedor vencendo hoje',
-    description: 'Título financeiro Silveira Express (R$ 3.100,00) registra vencimento em 21/06 sem conciliação correspondente no extrato bancário.',
-    level: 'high',
-    status: 'active',
-    category: 'Faturamento',
-    date: '2026-06-21',
-    companyCnpj: '98765432000100'
-  },
-  {
-    id: 'al-3',
-    title: 'Sincronização de API Bancária PJ ativa',
-    description: 'Contas bancárias sincronizadas perfeitamente com os endpoints de produção à 1 hora atrás.',
-    level: 'info',
-    status: 'active',
-    category: 'Sincronização',
-    date: '2026-06-21',
-    companyCnpj: '12345678000199'
-  }
-];
-
-const initialUsers: User[] = [
-  {
-    id: 'u-1',
-    name: 'Diego Terrani',
-    email: 'diego.terrani@gmail.com',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
-    role: 'admin',
-    status: 'active',
-    lastActive: 'Agora mesmo',
-    lastIp: '177.34.21.198',
-    device: 'macOS Chrome 126'
-  },
-  {
-    id: 'u-2',
-    name: 'Mariana Santos',
-    email: 'mariana.santos@vance.com.br',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=100',
-    role: 'tesouraria',
-    status: 'active',
-    lastActive: 'Ontem 18:40',
-    lastIp: '189.44.12.22',
-    device: 'Windows Edge 125'
-  },
-  {
-    id: 'u-3',
-    name: 'André Silveira',
-    email: 'andre.silveira@vance.com.br',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100',
-    role: 'analista',
-    status: 'active',
-    lastActive: '3 dias atrás',
-    lastIp: '191.134.12.82',
-    device: 'Linux Mint Firefox 112'
-  },
-  {
-    id: 'u-4',
-    name: 'Lucas Oliveira',
-    email: 'lucas.oliveira@vance.com.br',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100',
-    role: 'viewer',
-    status: 'active',
-    lastActive: '5 minutos atrás',
-    lastIp: '177.40.10.150',
-    device: 'iOS Chrome 126'
-  },
-  {
-    id: 'u-5',
-    name: 'Camila Xavier',
-    email: 'camila.xavier@vance.com.br',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100',
-    role: 'gerencia',
-    status: 'active',
-    lastActive: '2 horas atrás',
-    lastIp: '179.24.120.30',
-    device: 'macOS Safari 17.4'
-  },
-  {
-    id: 'u-6',
-    name: 'Roberto Dias',
-    email: 'roberto.dias@vance.com.br',
-    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100',
-    role: 'diretor',
-    status: 'active',
-    lastActive: 'Hoje 10:15',
-    lastIp: '200.180.45.12',
-    device: 'Windows Firefox 125'
-  }
-];
-
-const initialPluggyAccounts: PluggyAccount[] = [
-  {
-    id: 'acc-itau',
-    name: 'Itaú Unibanco S.A.',
-    type: 'checking',
-    bankName: 'Itaú Corp',
-    balance: 4200.00,
-    syncStatus: 'success',
-    lastSync: '06:00 Hoje',
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'acc-xp',
-    name: 'XP Investimentos',
-    type: 'investment',
-    bankName: 'XP Corporate',
-    balance: 44120.00,
-    syncStatus: 'success',
-    lastSync: '06:00 Hoje',
-    companyCnpj: '12345678000199'
-  },
-  {
-    id: 'acc-nubank',
-    name: 'Nubank PJ',
-    type: 'checking',
-    bankName: 'Nubank Co-Corp',
-    balance: 15300.00,
-    syncStatus: 'success',
-    lastSync: '06:00 Hoje',
-    companyCnpj: '98765432000100'
-  },
-  {
-    id: 'acc-cash-1',
-    name: 'Caixa Interno em Espécie',
-    type: 'cash',
-    bankName: 'Caixa Físico',
-    balance: 3800.00,
-    syncStatus: 'success',
-    lastSync: 'Manual',
-    companyCnpj: '12345678000199'
-  }
-];
-
-const initialWebhookLogs: WebhookLog[] = [
-  { id: 'wh-1', url: 'https://meu-sistema-erp.com/webhooks/vance', event: 'cnab.processed', status: 'success', timestamp: '21/06 14:10', duration: 154, statusCode: 200 },
-  { id: 'wh-2', url: 'https://meu-sistema-erp.com/webhooks/vance', event: 'balance.alert', status: 'success', timestamp: '21/06 13:00', duration: 89, statusCode: 200 },
-  { id: 'wh-3', url: 'https://meu-sistema-erp.com/webhooks/vance', event: 'cnab.processed', status: 'failed', timestamp: '20/06 09:12', duration: 320, statusCode: 502 }
-];
-
-const initialAuditLogs: AuditLog[] = [
-  { id: 'aud-1', userId: 'u-1', userName: 'Diego Terrani', action: 'CONCILIAÇÃO_AUTO', details: 'Aprovação massiva de 4 lançamentos via CNAB retornado', timestamp: '2026-06-21T14:10:00Z', ip: '177.34.21.198' },
-  { id: 'aud-2', userId: 'u-1', userName: 'Diego Terrani', action: 'ATUALIZAR_CERTIFICADO', details: 'Arquivo de faturamento certificado A1 enviado (.pfx)', timestamp: '2026-06-21T12:00:00Z', ip: '177.34.21.198' },
-  { id: 'aud-3', userId: 'u-2', userName: 'Mariana Santos', action: 'OPEN_FINANCE_SYNC', details: 'Forçado sincronismo manual nas agências de XP Corp', timestamp: '2026-06-20T18:30:00Z', ip: '189.44.12.22' }
-];
-
+// Cash-flow chart aggregate (derived/demo; not persisted per-row).
 const mockCashflowData = [
   { month: 'Jan', inflow: 34000, outflow: 21000, balance: 13000 },
   { month: 'Fev', inflow: 42000, outflow: 28000, balance: 14000 },
@@ -265,90 +25,115 @@ const mockCashflowData = [
 ];
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('vance_session_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  });
+  // ---- auth ----
+  const [session, setSession] = useState<Session | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   const [currentView, setCurrentView] = useState('overview');
   const [activeSettingsTab, setActiveSettingsTab] = useState('company');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
-  const handleNavigate = (view: string) => {
-    setCurrentView(view);
-    if (view === 'settings') {
-      setActiveSettingsTab('company');
-    }
-  };
-
-  const handleLogin = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem('vance_session_user', JSON.stringify(user));
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem('vance_session_user');
-  };
-
-  // Core application state
+  // ---- application state ----
   const [appState, setAppState] = useState<AppState>({
     theme: 'dark',
     sidebarOpen: true,
     density: 'standard',
     selectedCompany: {
-      cnpj: '12345678000199',
-      razaoSocial: 'Vance Soluções de Crescimento LTDA',
+      cnpj: '',
+      razaoSocial: '',
       nomeFantasia: 'VANCE',
-      regime: 'Simples Nacional',
-      minBalanceAlert: 10000.00,
+      regime: '',
+      minBalanceAlert: 0,
       timezone: 'America/Sao_Paulo',
-      certificateUploaded: true,
-      certificateExpiry: '21/06/2027'
+      certificateUploaded: false
     }
   });
 
-  // Database lists state
-  const [companies, setCompanies] = useState<Company[]>(() => {
-    return [
-      {
-        cnpj: '12345678000199',
-        razaoSocial: 'Vance Soluções de Crescimento LTDA',
-        nomeFantasia: 'VANCE MATRIZ',
-        regime: 'Simples Nacional',
-        minBalanceAlert: 10000.00,
-        timezone: 'America/Sao_Paulo',
-        certificateUploaded: true,
-        certificateExpiry: '21/06/2027'
-      },
-      {
-        cnpj: '98765432000100',
-        razaoSocial: 'Vance Distribuidora de Ativos Importados S.A.',
-        nomeFantasia: 'VANCE DISTRIBUIDORA',
-        regime: 'Lucro Real',
-        minBalanceAlert: 25000.00,
-        timezone: 'America/Sao_Paulo',
-        certificateUploaded: false
-      }
-    ];
-  });
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedCompanyCnpj, setSelectedCompanyCnpj] = useState<string>('consolidado');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [pluggyAccounts, setPluggyAccounts] = useState<PluggyAccount[]>([]);
+  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
-  const [alerts, setAlerts] = useState<Alert[]>(initialAlerts);
-  const [users, setUsers] = useState<User[]>(initialUsers);
-  const [pluggyAccounts, setPluggyAccounts] = useState<PluggyAccount[]>(initialPluggyAccounts);
-  const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>(initialWebhookLogs);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
+  // Subscribe to the Supabase session.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      if (!data.session) setAuthLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (!s) {
+        setCurrentUser(null);
+        setAuthLoading(false);
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // When a session exists, load the profile and all data (scoped by RLS).
+  useEffect(() => {
+    const uid = session?.user?.id;
+    if (!uid) return;
+    let active = true;
+    (async () => {
+      const profile = await db.fetchProfile(uid);
+      if (!active) return;
+      setCurrentUser(
+        profile || {
+          id: uid,
+          name: (session!.user.user_metadata?.name as string) || session!.user.email || 'Usuário',
+          email: session!.user.email || '',
+          avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100',
+          role: 'analista',
+          status: 'active',
+          lastActive: 'Agora mesmo',
+          lastIp: '',
+          device: 'Navegador Web'
+        }
+      );
+      try {
+        const data = await db.fetchAll();
+        if (!active) return;
+        setCompanies(data.companies);
+        setTransactions(data.transactions);
+        setAlerts(data.alerts);
+        setUsers(data.users);
+        setPluggyAccounts(data.accounts);
+        setAuditLogs(data.auditLogs);
+        setWebhookLogs(data.webhookLogs);
+        if (data.companies[0]) {
+          setAppState(prev => ({ ...prev, selectedCompany: data.companies[0] }));
+        }
+      } catch (e) {
+        console.error('Falha ao carregar dados', e);
+      } finally {
+        if (active) setAuthLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [session?.user?.id]);
+
+  // Theme attribute sync.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', appState.theme);
+  }, [appState.theme]);
+
+  const handleNavigate = (view: string) => {
+    setCurrentView(view);
+    if (view === 'settings') setActiveSettingsTab('company');
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    setSession(null);
+  };
 
   // Filtered lists based on individual CNPJ vs. Consolidado
   const filteredTransactions = selectedCompanyCnpj === 'consolidado'
@@ -363,150 +148,171 @@ export default function App() {
     ? alerts
     : alerts.filter(al => al.companyCnpj === selectedCompanyCnpj);
 
-  // Sync state setting properties on document Root for dark/light mode switches
   const handleToggleTheme = () => {
-    const nextTheme = appState.theme === 'dark' ? 'light' : 'dark';
-    handleUpdateState({ theme: nextTheme });
+    handleUpdateState({ theme: appState.theme === 'dark' ? 'light' : 'dark' });
   };
 
-  useEffect(() => {
-    const root = document.documentElement;
-    root.setAttribute('data-theme', appState.theme);
-  }, [appState.theme]);
-
-  // Partial settings updator
   const handleUpdateState = (newState: Partial<AppState>) => {
     setAppState(prev => ({ ...prev, ...newState }));
   };
 
-  // Dispatchers
-  const handleAddTransaction = (tx: Transaction) => {
-    const txWithCnpj = {
-      ...tx,
-      companyCnpj: tx.companyCnpj || (selectedCompanyCnpj === 'consolidado' ? companies[0]?.cnpj : selectedCompanyCnpj) || '12345678000199'
-    };
-    setTransactions(prev => [txWithCnpj, ...prev]);
-    // create audit
-    const newAudit: AuditLog = {
-      id: `aud-${Date.now()}`,
-      userId: 'u-1',
-      userName: 'Diego Terrani',
-      action: 'NOVA_TRANSAÇÃO_PARSADA',
-      details: `Lançamento manual inserido no livro caixa: ${tx.description}`,
-      timestamp: new Date().toISOString(),
-      ip: '177.34.21.198'
-    };
-    setAuditLogs(prev => [newAudit, ...prev]);
+  const writeAudit = async (action: string, details: string) => {
+    if (!currentUser) return;
+    await db.insertAudit({ userId: currentUser.id, userName: currentUser.name, action, details });
+    setAuditLogs(prev => [
+      { id: `aud-${Date.now()}`, userId: currentUser.id, userName: currentUser.name, action, details, timestamp: new Date().toISOString(), ip: currentUser.lastIp },
+      ...prev
+    ]);
   };
 
-  const handleUpdateTransactionStatus = (id: string, newStatus: any) => {
-    setTransactions(prev => prev.map(t => {
-      if (t.id === id) {
-        return { ...t, status: newStatus };
-      }
-      return t;
-    }));
-
-    // create audit
-    const tx = transactions.find(t => t.id === id);
-    const newAudit: AuditLog = {
-      id: `aud-${Date.now()}`,
-      userId: 'u-1',
-      userName: 'Diego Terrani',
-      action: 'ATUALIZAR_STATUS',
-      details: `Lancamento "${tx?.description}" remarcado para o status ${newStatus}`,
-      timestamp: new Date().toISOString(),
-      ip: '177.34.21.198'
-    };
-    setAuditLogs(prev => [newAudit, ...prev]);
-  };
-
-  const handleResolveAlert = (id: string) => {
-    setAlerts(prev => prev.map(alert => {
-      if (alert.id === id) {
-        return { ...alert, status: 'resolved' as any };
-      }
-      return alert;
-    }));
-  };
-
-  const handleSnoozeAlert = (id: string, durationHours: number) => {
-    const d = new Date();
-    d.setHours(d.getHours() + durationHours);
-    const formattedTime = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-    setAlerts(prev => prev.map(alert => {
-      if (alert.id === id) {
-        return { ...alert, status: 'snoozed', snoozedUntil: `${formattedTime} (Hoje)` } as any;
-      }
-      return alert;
-    }));
-  };
-
-  const handleAddUser = (user: User) => {
-    setUsers(prev => [...prev, user]);
-  };
-
-  const handleUpdateUserRole = (id: string, role: any) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === id) {
-        return { ...u, role };
-      }
-      return u;
-    }));
-  };
-
-  const handleToggleUserStatus = (id: string) => {
-    setUsers(prev => prev.map(u => {
-      if (u.id === id) {
-        const nextStatus = u.status === 'active' ? 'inactive' : 'active';
-        return { ...u, status: nextStatus };
-      }
-      return u;
-    }));
-  };
-
-  const handleSessionRoleChange = (newRole: any) => {
-    if (currentUser) {
-      const updatedUser = { ...currentUser, role: newRole };
-      setCurrentUser(updatedUser);
-      localStorage.setItem('vance_session_user', JSON.stringify(updatedUser));
-      
-      // sync with the users list too
-      setUsers(prev => prev.map(u => {
-        if (u.id === currentUser.id) {
-          return { ...u, role: newRole };
-        }
-        return u;
-      }));
+  // ---- dispatchers (persisted via Supabase) ----
+  const handleAddTransaction = async (tx: Transaction) => {
+    const companyCnpj =
+      tx.companyCnpj ||
+      (selectedCompanyCnpj === 'consolidado' ? companies[0]?.cnpj : selectedCompanyCnpj) ||
+      companies[0]?.cnpj;
+    if (!companyCnpj) {
+      console.error('Nenhuma empresa disponível para o lançamento.');
+      return;
+    }
+    try {
+      const saved = await db.insertTransaction({ ...tx, companyCnpj });
+      setTransactions(prev => [saved, ...prev]);
+      await writeAudit('NOVA_TRANSAÇÃO_PARSADA', `Lançamento inserido no livro caixa: ${tx.description}`);
+    } catch (e) {
+      console.error('Falha ao salvar lançamento', e);
     }
   };
 
-  const handleAddPluggyAccount = (acc: PluggyAccount) => {
-    setPluggyAccounts(prev => [...prev, acc]);
+  const handleUpdateTransactionStatus = async (id: string, newStatus: any) => {
+    const tx = transactions.find(t => t.id === id);
+    try {
+      await db.updateTransactionStatus(id, newStatus);
+      setTransactions(prev => prev.map(t => (t.id === id ? { ...t, status: newStatus } : t)));
+      await writeAudit('ATUALIZAR_STATUS', `Lancamento "${tx?.description}" remarcado para o status ${newStatus}`);
+    } catch (e) {
+      console.error('Falha ao atualizar status', e);
+    }
   };
 
-  const handleRemovePluggyAccount = (id: string) => {
-    setPluggyAccounts(prev => prev.filter(acc => acc.id !== id));
+  const handleResolveAlert = async (id: string) => {
+    try {
+      await db.resolveAlert(id);
+      setAlerts(prev => prev.map(a => (a.id === id ? { ...a, status: 'resolved' as any } : a)));
+    } catch (e) {
+      console.error('Falha ao resolver alerta', e);
+    }
+  };
+
+  const handleSnoozeAlert = async (id: string, durationHours: number) => {
+    const d = new Date();
+    d.setHours(d.getHours() + durationHours);
+    try {
+      await db.snoozeAlert(id, d.toISOString());
+      const formattedTime = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      setAlerts(prev => prev.map(a => (a.id === id ? { ...a, status: 'snoozed', snoozedUntil: `${formattedTime} (Hoje)` } as any : a)));
+    } catch (e) {
+      console.error('Falha ao adiar alerta', e);
+    }
+  };
+
+  // Adding a teammate requires Supabase Auth admin (invite) — not available
+  // client-side. Kept local-only so the Settings UI stays functional.
+  const handleAddUser = (user: User) => {
+    console.warn('Convite de usuário não persistido: use o cadastro (signup) ou o painel admin do Supabase.');
+    setUsers(prev => [...prev, user]);
+  };
+
+  const handleUpdateUserRole = async (id: string, role: any) => {
+    try {
+      await db.updateUserRole(id, role);
+      setUsers(prev => prev.map(u => (u.id === id ? { ...u, role } : u)));
+    } catch (e) {
+      console.error('Falha ao atualizar cargo', e);
+    }
+  };
+
+  const handleToggleUserStatus = async (id: string) => {
+    const u = users.find(x => x.id === id);
+    const nextStatus = u?.status === 'active' ? 'inactive' : 'active';
+    try {
+      await db.updateUserStatus(id, nextStatus);
+      setUsers(prev => prev.map(x => (x.id === id ? { ...x, status: nextStatus } : x)));
+    } catch (e) {
+      console.error('Falha ao alterar status do usuário', e);
+    }
+  };
+
+  const handleSessionRoleChange = async (newRole: any) => {
+    if (!currentUser) return;
+    try {
+      await db.updateUserRole(currentUser.id, newRole);
+      const updated = { ...currentUser, role: newRole };
+      setCurrentUser(updated);
+      setUsers(prev => prev.map(u => (u.id === currentUser.id ? { ...u, role: newRole } : u)));
+    } catch (e) {
+      console.error('Falha ao trocar cargo da sessão', e);
+    }
+  };
+
+  const handleAddPluggyAccount = async (acc: PluggyAccount) => {
+    const companyCnpj = acc.companyCnpj || (selectedCompanyCnpj !== 'consolidado' ? selectedCompanyCnpj : companies[0]?.cnpj);
+    try {
+      const saved = await db.insertAccount({ ...acc, companyCnpj });
+      setPluggyAccounts(prev => [...prev, saved]);
+    } catch (e) {
+      console.error('Falha ao adicionar conta', e);
+    }
+  };
+
+  const handleRemovePluggyAccount = async (id: string) => {
+    try {
+      await db.deleteAccount(id);
+      setPluggyAccounts(prev => prev.filter(acc => acc.id !== id));
+    } catch (e) {
+      console.error('Falha ao remover conta', e);
+    }
+  };
+
+  const handleAddCompany = async (company: Company) => {
+    try {
+      const saved = await db.insertCompany(company);
+      setCompanies(prev => [...prev, saved]);
+    } catch (e) {
+      console.error('Falha ao adicionar empresa (requer perfil admin)', e);
+    }
+  };
+
+  const handleRemoveCompany = async (cnpj: string) => {
+    try {
+      await db.deleteCompany(cnpj);
+      setCompanies(prev => prev.filter(c => c.cnpj !== cnpj));
+      if (selectedCompanyCnpj === cnpj) setSelectedCompanyCnpj('consolidado');
+    } catch (e) {
+      console.error('Falha ao remover empresa (requer perfil admin)', e);
+    }
   };
 
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
 
-  if (!currentUser) {
+  if (authLoading) {
     return (
-      <Login
-        users={users}
-        onAddUser={handleAddUser}
-        onLogin={handleLogin}
-      />
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#0A0F1A] text-white">
+        <Logo showText={true} size="md" />
+        <p className="text-xs text-[#A3A3A3] animate-pulse">Carregando central financeira...</p>
+      </div>
     );
+  }
+
+  if (!currentUser) {
+    return <Login />;
   }
 
   return (
     <div className={`theme-transition min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] ${
       appState.density === 'compact' ? 'compact-density' : appState.density === 'comfortable' ? 'comfortable-density' : ''
     }`}>
-      
+
       {/* 1. LATERAL BAR SHELL */}
       <Sidebar
         currentView={currentView}
@@ -530,7 +336,7 @@ export default function App() {
       <div className={`transition-all duration-300 min-h-screen flex flex-col pl-0 ${
         sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-[250px]'
       }`}>
-        
+
         {/* Global sticky header widget */}
         <Header
           currentView={currentView}
@@ -611,13 +417,8 @@ export default function App() {
                 setActiveSettingsTab('bank-api');
               }}
               companies={companies}
-              onAddCompany={(company) => setCompanies(prev => [...prev, company])}
-              onRemoveCompany={(cnpj) => {
-                setCompanies(prev => prev.filter(c => c.cnpj !== cnpj));
-                if (selectedCompanyCnpj === cnpj) {
-                  setSelectedCompanyCnpj('consolidado');
-                }
-              }}
+              onAddCompany={handleAddCompany}
+              onRemoveCompany={handleRemoveCompany}
               onRemovePluggyAccount={handleRemovePluggyAccount}
               activeSettingsTab={activeSettingsTab}
               currentUser={currentUser}
