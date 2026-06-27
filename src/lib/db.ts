@@ -101,9 +101,45 @@ const toAuditLog = (r: any): AuditLog => ({
   ip: r.ip ?? "",
 });
 
+export interface IntegrationSetting {
+  id: string;
+  companyCnpj: string;
+  kind: "bank_api" | "erp" | "webhook" | "notifications";
+  ref: string;
+  config: any;
+  status?: string;
+}
+
+export interface TeamInvite {
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
+  companyCnpj?: string;
+  status: string;
+}
+
+const toIntegration = (r: any): IntegrationSetting => ({
+  id: r.id,
+  companyCnpj: r.company_cnpj,
+  kind: r.kind,
+  ref: r.ref ?? "",
+  config: r.config ?? {},
+  status: r.status ?? undefined,
+});
+
+const toInvite = (r: any): TeamInvite => ({
+  id: r.id,
+  email: r.email,
+  name: r.name ?? undefined,
+  role: r.role,
+  companyCnpj: r.company_cnpj ?? undefined,
+  status: r.status,
+});
+
 // ---------- reads ----------
 export async function fetchAll() {
-  const [companies, transactions, alerts, accounts, users, audit, webhooks] =
+  const [companies, transactions, alerts, accounts, users, audit, webhooks, integrations, invites] =
     await Promise.all([
       supabase.from("companies").select("*").order("razao_social"),
       supabase.from("transactions").select("*").order("date", { ascending: false }),
@@ -112,6 +148,8 @@ export async function fetchAll() {
       supabase.from("profiles").select("*"),
       supabase.from("audit_logs").select("*").order("timestamp", { ascending: false }),
       supabase.from("webhook_logs").select("*").order("timestamp", { ascending: false }),
+      supabase.from("integration_settings").select("*"),
+      supabase.from("team_invites").select("*").order("created_at", { ascending: false }),
     ]);
 
   return {
@@ -122,7 +160,48 @@ export async function fetchAll() {
     users: (users.data ?? []).map(toUser),
     auditLogs: (audit.data ?? []).map(toAuditLog),
     webhookLogs: (webhooks.data ?? []).map(toWebhookLog),
+    integrationSettings: (integrations.data ?? []).map(toIntegration),
+    invites: (invites.data ?? []).map(toInvite),
   };
+}
+
+export async function upsertIntegration(
+  companyCnpj: string,
+  kind: IntegrationSetting["kind"],
+  ref: string,
+  config: any,
+  status?: string,
+): Promise<IntegrationSetting> {
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { data, error } = await supabase
+    .from("integration_settings")
+    .upsert(
+      { company_cnpj: companyCnpj, kind, ref: ref || "", config, status: status ?? null, updated_by: userId, updated_at: new Date().toISOString() },
+      { onConflict: "company_cnpj,kind,ref" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return toIntegration(data);
+}
+
+export async function createInvite(invite: {
+  email: string;
+  name?: string;
+  role: string;
+  companyCnpj: string;
+}): Promise<TeamInvite> {
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { data, error } = await supabase
+    .from("team_invites")
+    .upsert(
+      { email: invite.email.toLowerCase(), name: invite.name, role: invite.role, company_cnpj: invite.companyCnpj, invited_by: userId, status: "pending" },
+      { onConflict: "email,company_cnpj" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return toInvite(data);
 }
 
 // ---------- writes ----------
@@ -191,6 +270,26 @@ export async function insertCompany(c: Company): Promise<Company> {
 export async function deleteCompany(cnpj: string) {
   const { error } = await supabase.from("companies").delete().eq("cnpj", cnpj);
   if (error) throw error;
+}
+
+export async function updateCompany(c: Company): Promise<Company> {
+  const { data, error } = await supabase
+    .from("companies")
+    .update({
+      razao_social: c.razaoSocial,
+      nome_fantasia: c.nomeFantasia,
+      regime: c.regime,
+      min_balance_alert: c.minBalanceAlert,
+      timezone: c.timezone,
+      certificate_uploaded: c.certificateUploaded,
+      certificate_expiry: c.certificateExpiry ?? null,
+      logo: c.logo ?? null,
+    })
+    .eq("cnpj", c.cnpj)
+    .select()
+    .single();
+  if (error) throw error;
+  return toCompany(data);
 }
 
 export async function insertAccount(a: PluggyAccount): Promise<PluggyAccount> {

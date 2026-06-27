@@ -29,10 +29,15 @@ interface SettingsProps {
   onOpenSettingsModal?: () => void;
   companies: Company[];
   onAddCompany: (c: Company) => void;
+  onUpdateCompany?: (c: Company) => void;
   onRemoveCompany: (cnpj: string) => void;
   onRemovePluggyAccount: (id: string) => void;
   activeSettingsTab?: string;
   currentUser?: User;
+  integrationSettings?: any[];
+  onSaveIntegration?: (kind: string, ref: string, config: any, status?: string) => void;
+  invites?: any[];
+  onInvite?: (invite: { email: string; name?: string; role: string }) => void;
 }
 
 export default function Settings({
@@ -49,10 +54,15 @@ export default function Settings({
   onOpenSettingsModal,
   companies,
   onAddCompany,
+  onUpdateCompany,
   onRemoveCompany,
   onRemovePluggyAccount,
   activeSettingsTab,
-  currentUser
+  currentUser,
+  integrationSettings,
+  onSaveIntegration,
+  invites,
+  onInvite
 }: SettingsProps) {
   // Lateral tabs
   const [activeTab, setActiveTab] = useState<
@@ -105,17 +115,16 @@ export default function Settings({
       alert('Erro: Seu cargo não possui permissão para alterar as configurações do inquilino.');
       return;
     }
-    onUpdateState({
-      selectedCompany: {
-        ...appState.selectedCompany,
-        nomeFantasia: compName,
-        cnpj: compCnpj,
-        regime: compRegime,
-        minBalanceAlert: Number(compLimit),
-        timezone: compTimezone,
-        certificateUploaded: isCertUploaded
-      }
-    });
+    const updatedCompany = {
+      ...appState.selectedCompany,
+      nomeFantasia: compName,
+      regime: compRegime,
+      minBalanceAlert: Number(compLimit),
+      timezone: compTimezone,
+      certificateUploaded: isCertUploaded
+    };
+    onUpdateState({ selectedCompany: updatedCompany });
+    onUpdateCompany?.(updatedCompany); // persist to Supabase (cnpj is the PK, not edited)
     triggerSaveSuccess();
   };
 
@@ -162,6 +171,7 @@ export default function Settings({
       device: 'E-mail enviado'
     };
 
+    onInvite?.({ email: inviteEmail, name: inviteName, role: inviteRole });
     onAddUser(newUser);
     setInviteEmail('');
     setInviteName('');
@@ -182,6 +192,7 @@ export default function Settings({
 
   const handleSaveWebhook = (e: React.FormEvent) => {
     e.preventDefault();
+    onSaveIntegration?.('webhook', '', { url: webhookUrl, events: webhookEvents }, 'configured');
     triggerSaveSuccess();
   };
 
@@ -232,7 +243,11 @@ export default function Settings({
   });
 
   const toggleNotifRule = (key: keyof typeof notifRules) => {
-    setNotifRules(prev => ({ ...prev, [key]: !prev[key] }));
+    setNotifRules(prev => {
+      const next = { ...prev, [key]: !prev[key] };
+      onSaveIntegration?.('notifications', '', next, 'configured');
+      return next;
+    });
   };
 
   // ----------------------------------------------------
@@ -331,6 +346,47 @@ export default function Settings({
   const [newRegime, setNewRegime] = useState('Simples Nacional');
   const [newMinBalance, setNewMinBalance] = useState('10000');
 
+  // Company scope for integration settings (the selected "matriz").
+  const settingsCompanyCnpj = appState.selectedCompany?.cnpj || companies?.[0]?.cnpj || '';
+
+  // Hydrate webhook + notification config from the backend.
+  useEffect(() => {
+    if (!integrationSettings) return;
+    const forCo = integrationSettings.filter((s: any) => s.companyCnpj === settingsCompanyCnpj);
+    const wh = forCo.find((s: any) => s.kind === 'webhook');
+    if (wh?.config) {
+      if (wh.config.url) setWebhookUrl(wh.config.url);
+      if (wh.config.events) setWebhookEvents(prev => ({ ...prev, ...wh.config.events }));
+    }
+    const nt = forCo.find((s: any) => s.kind === 'notifications');
+    if (nt?.config && Object.keys(nt.config).length) setNotifRules(prev => ({ ...prev, ...nt.config }));
+  }, [integrationSettings, settingsCompanyCnpj]);
+
+  // Hydrate bank-API fields for the currently selected bank.
+  useEffect(() => {
+    const s = integrationSettings?.find(
+      (x: any) => x.companyCnpj === settingsCompanyCnpj && x.kind === 'bank_api' && x.ref === selectedBank,
+    );
+    setClientId(s?.config?.clientId || '');
+    setClientSecret(s?.config?.clientSecret || '');
+    setCertUploaded(!!s?.config?.certUploaded);
+  }, [selectedBank, integrationSettings, settingsCompanyCnpj]);
+
+  // Hydrate ERP fields for the currently selected ERP.
+  useEffect(() => {
+    const s = integrationSettings?.find(
+      (x: any) => x.companyCnpj === settingsCompanyCnpj && x.kind === 'erp' && x.ref === selectedErp,
+    );
+    if (s?.config) {
+      if (s.config.erpUrl) setErpUrl(s.config.erpUrl);
+      setErpToken(s.config.erpToken || '');
+      setErpAppKey(s.config.erpAppKey || '');
+      if (s.config.syncFrequency) setSyncFrequency(s.config.syncFrequency);
+      if (s.config.syncEntities) setSyncEntities(prev => ({ ...prev, ...s.config.syncEntities }));
+      if (s.status === 'connected' || s.status === 'error' || s.status === 'disconnected') setErpStatus(s.status);
+    }
+  }, [selectedErp, integrationSettings, settingsCompanyCnpj]);
+
   const handleTestBankApi = () => {
     if (testingBankApi) return;
     setTestingBankApi(true);
@@ -367,6 +423,7 @@ export default function Settings({
         { time: getNowTime(), type: 'info', message: `Sincronismo via Webhook API pronto em: https://vance.com.br/api/v1/webhooks/${selectedBank}` }
       ]);
       setTestingBankApi(false);
+      onSaveIntegration?.('bank_api', selectedBank, { clientId, clientSecret, certUploaded: certUploaded || true }, 'connected');
 
       const bankNames: Record<string, string> = {
         itau: 'Itaú Unibanco S.A.',
@@ -428,6 +485,7 @@ export default function Settings({
             { time: getNowTime(), type: 'success', message: 'Sincronização de ERP estabelecida com status operacional ativo!' }
           ]);
           setErpStatus('connected');
+          onSaveIntegration?.('erp', selectedErp, { erpUrl, erpToken, erpAppKey, syncFrequency, syncEntities }, 'connected');
           setTestingErp(false);
         }, 800);
       }

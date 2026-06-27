@@ -15,15 +15,28 @@ import { Transaction, Alert, User, PluggyAccount, WebhookLog, AuditLog, AppState
 import { supabase } from './lib/supabase';
 import * as db from './lib/db';
 
-// Cash-flow chart aggregate (derived/demo; not persisted per-row).
-const mockCashflowData = [
-  { month: 'Jan', inflow: 34000, outflow: 21000, balance: 13000 },
-  { month: 'Fev', inflow: 42000, outflow: 28000, balance: 14000 },
-  { month: 'Mar', inflow: 38000, outflow: 32000, balance: 6000 },
-  { month: 'Abr', inflow: 51000, outflow: 25000, balance: 26000 },
-  { month: 'Mai', inflow: 48000, outflow: 29000, balance: 19000 },
-  { month: 'Jun', inflow: 52000, outflow: 31000, balance: 21000 }
-];
+const MONTHS_PT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+// Monthly inflow/outflow/balance derived from real transactions (last 6 months).
+function deriveCashflow(txs: Transaction[]) {
+  const byMonth = new Map<string, { month: string; inflow: number; outflow: number; balance: number }>();
+  for (const t of txs) {
+    if (!t.date) continue;
+    const d = new Date(t.date + 'T00:00:00');
+    if (isNaN(d.getTime())) continue;
+    const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
+    const cur = byMonth.get(key) || { month: MONTHS_PT[d.getMonth()], inflow: 0, outflow: 0, balance: 0 };
+    const v = Number(t.value) || 0;
+    if (t.direction === 'inflow' || v > 0) cur.inflow += Math.abs(v);
+    else cur.outflow += Math.abs(v);
+    cur.balance = cur.inflow - cur.outflow;
+    byMonth.set(key, cur);
+  }
+  return Array.from(byMonth.entries())
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .slice(-6)
+    .map(([, v]) => v);
+}
 
 export default function App() {
   // ---- auth ----
@@ -63,6 +76,8 @@ export default function App() {
   const [pluggyAccounts, setPluggyAccounts] = useState<PluggyAccount[]>([]);
   const [webhookLogs, setWebhookLogs] = useState<WebhookLog[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [integrationSettings, setIntegrationSettings] = useState<db.IntegrationSetting[]>([]);
+  const [invites, setInvites] = useState<db.TeamInvite[]>([]);
 
   // Subscribe to the Supabase session.
   useEffect(() => {
@@ -112,6 +127,8 @@ export default function App() {
         setPluggyAccounts(data.accounts);
         setAuditLogs(data.auditLogs);
         setWebhookLogs(data.webhookLogs);
+        setIntegrationSettings(data.integrationSettings);
+        setInvites(data.invites);
         if (data.companies[0]) {
           setAppState(prev => ({ ...prev, selectedCompany: data.companies[0] }));
         }
@@ -298,6 +315,48 @@ export default function App() {
     }
   };
 
+  const handleSaveIntegration = async (
+    kind: db.IntegrationSetting['kind'],
+    ref: string,
+    config: any,
+    status?: string,
+  ) => {
+    const cnpj = appState.selectedCompany?.cnpj || companies[0]?.cnpj;
+    if (!cnpj) return;
+    try {
+      const saved = await db.upsertIntegration(cnpj, kind, ref, config, status);
+      setIntegrationSettings(prev => [
+        ...prev.filter(s => !(s.companyCnpj === saved.companyCnpj && s.kind === saved.kind && s.ref === saved.ref)),
+        saved,
+      ]);
+    } catch (e) {
+      console.error('Falha ao salvar integração (requer perfil admin)', e);
+    }
+  };
+
+  const handleUpdateCompany = async (company: Company) => {
+    try {
+      const saved = await db.updateCompany(company);
+      setCompanies(prev => prev.map(c => (c.cnpj === saved.cnpj ? saved : c)));
+      setAppState(prev => (prev.selectedCompany?.cnpj === saved.cnpj ? { ...prev, selectedCompany: saved } : prev));
+    } catch (e) {
+      console.error('Falha ao atualizar empresa (requer perfil admin)', e);
+    }
+  };
+
+  const handleInvite = async (invite: { email: string; name?: string; role: string }) => {
+    const cnpj = appState.selectedCompany?.cnpj || companies[0]?.cnpj;
+    if (!cnpj) return;
+    try {
+      const saved = await db.createInvite({ ...invite, companyCnpj: cnpj });
+      setInvites(prev => [saved, ...prev.filter(i => i.id !== saved.id)]);
+      await writeAudit('CONVIDAR_USUARIO', `Convite enviado para ${invite.email} (${invite.role})`);
+    } catch (e) {
+      console.error('Falha ao convidar usuário (requer perfil admin)', e);
+    }
+  };
+
+  const cashflowData = deriveCashflow(transactions);
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
 
   if (recoveryMode) {
@@ -376,7 +435,7 @@ export default function App() {
               alerts={filteredAlerts}
               onNavigate={setCurrentView}
               onResolveAlert={handleResolveAlert}
-              mockCashflowData={mockCashflowData}
+              mockCashflowData={cashflowData}
             />
           )}
 
@@ -398,7 +457,7 @@ export default function App() {
           )}
 
           {currentView === 'cashflow' && (
-            <Cashflow mockCashflowData={mockCashflowData} />
+            <Cashflow mockCashflowData={cashflowData} />
           )}
 
           {currentView === 'alerts' && (
@@ -427,10 +486,15 @@ export default function App() {
               }}
               companies={companies}
               onAddCompany={handleAddCompany}
+              onUpdateCompany={handleUpdateCompany}
               onRemoveCompany={handleRemoveCompany}
               onRemovePluggyAccount={handleRemovePluggyAccount}
               activeSettingsTab={activeSettingsTab}
               currentUser={currentUser}
+              integrationSettings={integrationSettings}
+              onSaveIntegration={handleSaveIntegration}
+              invites={invites}
+              onInvite={handleInvite}
             />
           )}
         </main>
