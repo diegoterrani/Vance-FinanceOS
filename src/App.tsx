@@ -9,6 +9,7 @@ import Alerts from './pages/Alerts';
 import Settings from './pages/Settings';
 import Registers from './pages/Registers';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Logo from './components/Logo';
 import { Transaction, Alert, User, PluggyAccount, WebhookLog, AuditLog, AppState, Company } from './types';
 import { supabase } from './lib/supabase';
@@ -29,6 +30,9 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(
+    () => typeof window !== 'undefined' && window.location.hash.includes('type=recovery'),
+  );
 
   const [currentView, setCurrentView] = useState('overview');
   const [activeSettingsTab, setActiveSettingsTab] = useState('company');
@@ -66,7 +70,8 @@ export default function App() {
       setSession(data.session);
       if (!data.session) setAuthLoading(false);
     });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true);
       setSession(s);
       if (!s) {
         setCurrentUser(null);
@@ -294,6 +299,10 @@ export default function App() {
   };
 
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
+
+  if (recoveryMode) {
+    return <ResetPassword onDone={() => setRecoveryMode(false)} />;
+  }
 
   if (authLoading) {
     return (
