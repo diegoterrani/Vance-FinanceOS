@@ -1,0 +1,32 @@
+<svg viewBox="0 0 110 120" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="VANCE">
+  <defs>
+    <linearGradient id="vanceSilver" x1="10" y1="6" x2="100" y2="114" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f7f9fb"/>
+      <stop offset="0.45" stop-color="#c5cdd6"/>
+      <stop offset="0.75" stop-color="#8b95a1"/>
+      <stop offset="1" stop-color="#5b636d"/>
+    </linearGradient>
+    <linearGradient id="vanceGold" x1="40" y1="92" x2="92" y2="24" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#b4731f"/>
+      <stop offset="0.5" stop-color="#e6a23c"/>
+      <stop offset="1" stop-color="#fbe3a1"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Shield: outer + inner border (double-line look) -->
+  <path d="M55 6 L96 21 L96 60 C96 86 78 101 55 110 C32 101 14 86 14 60 L14 21 Z"
+        stroke="url(#vanceSilver)" stroke-width="5" stroke-linejoin="round" fill="none"/>
+  <path d="M55 16 L88 28 L88 59 C88 80 73 92 55 100 C37 92 22 80 22 59 L22 28 Z"
+        stroke="url(#vanceSilver)" stroke-width="2" stroke-linejoin="round" fill="none" opacity="0.55"/>
+
+  <!-- V / W mark -->
+  <path d="M30 38 L55 90 L80 38" stroke="url(#vanceSilver)" stroke-width="7"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M44 38 L55 62 L66 38" stroke="url(#vanceSilver)" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.85"/>
+
+  <!-- Rising gold arrow -->
+  <path d="M33 72 L47 56 L56 65 L82 30" stroke="url(#vanceGold)" stroke-width="6.5"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M70 28 L86 26 L82 42 Z" fill="url(#vanceGold)"/>
+</svg>
