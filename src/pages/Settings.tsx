@@ -551,6 +551,10 @@ export default function Settings({
       case 'bb': return 'Banco do Brasil S.A.';
       case 'santander': return 'Santander PJ';
       case 'nubank': return 'Nubank Co-Corporativo PJ';
+      case 'c6': return 'Banco C6 S.A.';
+      case 'caixa': return 'Caixa Econômica Federal';
+      case 'xp': return 'XP Investimentos';
+      case 'genial': return 'Banco Genial S.A.';
       default: return 'Banco de Destino PJ';
     }
   };
@@ -1133,6 +1137,10 @@ export default function Settings({
                       <option value="bb">Banco do Brasil Developer PJ</option>
                       <option value="santander">Santander PJ API Link</option>
                       <option value="nubank">Nubank PJ (Sem certificado MTLS)</option>
+                      <option value="c6">Banco C6 PJ API</option>
+                      <option value="caixa">Caixa Econômica Federal PJ</option>
+                      <option value="xp">XP Investimentos PJ API</option>
+                      <option value="genial">Banco Genial PJ API</option>
                     </select>
                   </div>
 
@@ -1354,6 +1362,9 @@ export default function Settings({
                           <option value="Santander S.A.">Santander PJ</option>
                           <option value="Nubank PJ">Nubank PJ</option>
                           <option value="XP Investimentos">XP Investimentos</option>
+                          <option value="Banco C6 S.A.">Banco C6 S.A.</option>
+                          <option value="Caixa Econômica Federal">Caixa Econômica Federal</option>
+                          <option value="Banco Genial S.A.">Banco Genial S.A.</option>
                         </select>
                       </div>
 

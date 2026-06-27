@@ -336,6 +336,9 @@ export default function Reconciliation({
                 <option value="Itaú Unibanco S.A.">Itaú Unibanco</option>
                 <option value="Banco do Brasil S.A.">Banco do Brasil S.A.</option>
                 <option value="XP Investimentos">XP Investimentos</option>
+                <option value="Banco C6 S.A.">Banco C6 S.A.</option>
+                <option value="Caixa Econômica Federal">Caixa Econômica Federal</option>
+                <option value="Banco Genial S.A.">Banco Genial S.A.</option>
               </select>
             </div>
 

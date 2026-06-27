@@ -32,7 +32,7 @@ Extraia as seguintes propriedades:
 3. description: descrição resumida e clara do lançamento (ex: "TELEFONICA BRASIL S.A.", "NF 4920 - FORNECEDOR ABC", "BOLETO COSERN"). Deve ser em MAIÚSCULAS e sem acentos se possível.
 4. dueDate: data de vencimento no formato AAAA-MM-DD. Se não houver data de vencimento explícita, tente estimar ou use '2026-06-25'.
 5. documentNumber: o número da nota fiscal ou do boleto ou do recibo (ex: "NF-1234", "BOL-4321").
-6. bank: o banco emissor do boleto ou o banco sugerido para a transação. Escolha estritamente entre estes três valores: 'Itaú Unibanco S.A.', 'Banco do Brasil S.A.' ou 'XP Investimentos'. Se não houver indicação clara, selecione 'Itaú Unibanco S.A.'.
+6. bank: o banco emissor do boleto ou o banco sugerido para a transação. Escolha estritamente um destes valores: 'Itaú Unibanco S.A.', 'Banco do Brasil S.A.', 'XP Investimentos', 'Banco C6 S.A.', 'Caixa Econômica Federal', 'Banco Genial S.A.', 'Bradesco S.A.', 'Santander S.A.' ou 'Nubank PJ'. Se não houver indicação clara, selecione 'Itaú Unibanco S.A.'.
 7. category: a categoria analítica correspondente mais apropriada para o lançamento.
    Se direction for 'inflow', escolha obrigatoriamente uma destas opções: 'Contratos Clientes', 'Juros e Rendimentos', 'Honorários Extra', 'Aportes Sócio'.
    Se direction for 'outflow', escolha obrigatoriamente uma destas opções: 'Sistemas e Softwares', 'Fornecedores e Logística', 'Folha de Pagamento', 'Impostos e Contribuições', 'Infraestrutura', 'Marketing e Vendas'.

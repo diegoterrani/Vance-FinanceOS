@@ -437,6 +437,9 @@ export default function Registers({
                   <option value="Itaú Unibanco S.A.">Itaú Unibanco S.A. (341)</option>
                   <option value="Banco do Brasil S.A.">Banco do Brasil S.A. (001)</option>
                   <option value="XP Investimentos">XP Investimentos (102)</option>
+                  <option value="Banco C6 S.A.">Banco C6 S.A. (336)</option>
+                  <option value="Caixa Econômica Federal">Caixa Econômica Federal (104)</option>
+                  <option value="Banco Genial S.A.">Banco Genial S.A. (125)</option>
                 </select>
               </div>
 
