@@ -1,15 +1,13 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User as UserIcon, ArrowRight, ShieldCheck, Check, Sparkles, TrendingUp, Wallet, AlertCircle } from 'lucide-react';
+import { Mail, Lock, User as UserIcon, ArrowRight, ShieldCheck, Check, TrendingUp, Wallet, AlertCircle } from 'lucide-react';
 import Logo from '../components/Logo';
-import { User, UserRole } from '../types';
+import { UserRole } from '../types';
+import { supabase } from '../lib/supabase';
 
-interface LoginProps {
-  users: User[];
-  onAddUser: (user: User) => void;
-  onLogin: (user: User) => void;
-}
-
-export default function Login({ users, onAddUser, onLogin }: LoginProps) {
+// Auth is handled by Supabase. App.tsx subscribes to onAuthStateChange and
+// renders the app once a session exists, so this component just drives the
+// sign-in / sign-up / recovery forms.
+export default function Login() {
   const [activeTab, setActiveTab] = useState<'login' | 'signup' | 'forgot'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,125 +17,80 @@ export default function Login({ users, onAddUser, onLogin }: LoginProps) {
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!email) {
-      setError('Por favor, informe seu e-mail.');
-      return;
-    }
-    if (!password) {
-      setError('Por favor, digite sua senha.');
-      return;
-    }
+    if (!email) return setError('Por favor, informe seu e-mail.');
+    if (!password) return setError('Por favor, digite sua senha.');
 
     setLoading(true);
-    setTimeout(() => {
-      // Find user by email (case-insensitive)
-      const foundUser = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-      
-      if (foundUser) {
-        if (foundUser.status === 'inactive') {
-          setError('Esta conta está atualmente desativada. Entre em contato com o suporte.');
-          setLoading(false);
-          return;
-        }
-        onLogin(foundUser);
-      } else {
-        // If not found in default list, create a transient user representing the custom login
-        const newCustomUser: User = {
-          id: `u-${Date.now()}`,
-          name: email.split('@')[0].split('.').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-          email: email.toLowerCase(),
-          avatar: `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100`, // default abstract avatar
-          role: 'analista', // default role
-          status: 'active',
-          lastActive: 'Agora mesmo',
-          lastIp: '177.34.21.198',
-          device: 'Navegador Web'
-        };
-        onAddUser(newCustomUser);
-        onLogin(newCustomUser);
-      }
-      setLoading(false);
-    }, 600);
+    const { error } = await supabase.auth.signInWithPassword({ email: email.toLowerCase(), password });
+    setLoading(false);
+    if (error) {
+      setError(
+        error.message.toLowerCase().includes('confirm')
+          ? 'E-mail ainda não confirmado. Verifique sua caixa de entrada.'
+          : 'E-mail ou senha inválidos.',
+      );
+    }
+    // success: App's auth listener takes over.
   };
 
-  const handleSignupSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    if (!name) {
-      setError('Por favor, digite seu nome completo.');
-      return;
-    }
-    if (!email) {
-      setError('Por favor, informe um e-mail válido.');
-      return;
-    }
-    if (!password || password.length < 6) {
-      setError('A senha deve conter no mínimo 6 caracteres.');
-      return;
-    }
-
-    setLoading(true);
-    setTimeout(() => {
-      // Check if email already exists
-      const emailExists = users.some(u => u.email.toLowerCase() === email.toLowerCase());
-      if (emailExists) {
-        setError('Este e-mail já está em uso.');
-        setLoading(false);
-        return;
-      }
-
-      const newUser: User = {
-        id: `u-${Date.now()}`,
-        name,
-        email: email.toLowerCase(),
-        avatar: `https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=100`,
-        role: role,
-        status: 'active',
-        lastActive: 'Agora mesmo',
-        lastIp: '127.0.0.1',
-        device: 'Dispositivo Recém Cadastrado'
-      };
-
-      onAddUser(newUser);
-      onLogin(newUser);
-      setLoading(false);
-    }, 800);
-  };
-
-  const handleForgotSubmit = (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccessMsg('');
-
-    if (!email) {
-      setError('Por favor, insira o seu e-mail cadastrado.');
-      return;
-    }
+    if (!name) return setError('Por favor, digite seu nome completo.');
+    if (!email) return setError('Por favor, informe um e-mail válido.');
+    if (!password || password.length < 6) return setError('A senha deve conter no mínimo 6 caracteres.');
 
     setLoading(true);
-    setTimeout(() => {
-      setSuccessMsg('As instruções de recuperação foram enviadas para o e-mail informado.');
-      setLoading(false);
-    }, 1000);
+    const { data, error } = await supabase.auth.signUp({
+      email: email.toLowerCase(),
+      password,
+      options: { data: { name, role } },
+    });
+    setLoading(false);
+
+    if (error) {
+      setError(error.message.toLowerCase().includes('already') ? 'Este e-mail já está em uso.' : error.message);
+      return;
+    }
+    if (!data.session) {
+      // Email confirmation is enabled on the project.
+      setSuccessMsg('Conta criada! Verifique seu e-mail para confirmar o acesso e então faça login.');
+      setActiveTab('login');
+    }
+    // If a session was returned, App's auth listener takes over.
+  };
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccessMsg('');
+    if (!email) return setError('Por favor, insira o seu e-mail cadastrado.');
+
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email.toLowerCase(), {
+      redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+    });
+    setLoading(false);
+    if (error) setError(error.message);
+    else setSuccessMsg('As instruções de recuperação foram enviadas para o e-mail informado.');
   };
 
   return (
     <div id="auth-container" className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#0A0A0A] text-[#F5F5F5] font-sans overflow-hidden">
-      
+
       {/* LEFT PANEL: PRODUCT VALUE SUMMARY & DECORATIONS (Hidden on small / tablet screen formats) */}
       <div className="hidden lg:flex lg:col-span-5 p-12 flex-col justify-between relative bg-radial-gradient from-neutral-900 to-[#0A0A0A] border-r border-[#222222] select-none">
-        
+
         {/* Abstract futuristic grid layout overlay */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#111_1px,transparent_1px),linear-gradient(to_bottom,#111_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-35" />
-        
+
         <div className="relative z-10">
           <Logo showText={true} size="md" className="text-white" />
-          
+
           <div className="mt-20 space-y-6 max-w-sm">
             <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
               Sua tesouraria <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A3A3A3] via-white to-[#555555]">automatizada</span> e em tempo real.
@@ -194,7 +147,7 @@ export default function Login({ users, onAddUser, onLogin }: LoginProps) {
 
       {/* RIGHT PANEL: INTERACTIVE AUTH FORMS (Adaptable to Mobile, Tablet, Desktop) */}
       <div className="col-span-1 lg:col-span-7 flex flex-col justify-center items-center px-4 sm:px-8 py-12 md:py-24 relative overflow-y-auto w-full">
-        
+
         {/* Background ambient lighting blobs */}
         <div className="absolute top-1/4 left-1/4 -translate-y-1/2 -translate-x-1/2 w-64 h-64 bg-white/[0.02] rounded-full blur-[100px] pointer-events-none" />
         <div className="absolute bottom-1/4 right-1/4 translate-y-1/2 translate-x-1/2 w-80 h-80 bg-[#A3A3A3]/[0.015] rounded-full blur-[120px] pointer-events-none" />
@@ -205,7 +158,7 @@ export default function Login({ users, onAddUser, onLogin }: LoginProps) {
         </div>
 
         <div className="w-full max-w-md bg-neutral-950/80 p-6 sm:p-8 rounded-2xl border border-[#222222] backdrop-blur-md shadow-2xl relative">
-          
+
           {/* Form Header */}
           <div className="text-center mb-6">
             {activeTab === 'login' && (
@@ -459,50 +412,6 @@ export default function Login({ users, onAddUser, onLogin }: LoginProps) {
                 </p>
               )
             )}
-          </div>
-        </div>
-
-        {/* MOCK TEAM PROFILES QUICK ACCESS DOCK (Highly intuitive Homologation Hub) */}
-        <div className="w-full max-w-md mt-6 bg-[#0E0E0E] p-4 rounded-xl border border-[#222222]">
-          <div className="flex gap-1.5 items-center justify-between mb-3 border-b border-[#222222]/60 pb-2">
-            <span className="text-[9px] font-mono uppercase tracking-widest text-[#737373] flex items-center gap-1">
-              <Sparkles size={11} className="text-yellow-500 animate-pulse" />
-              Sandbox Quick Access
-            </span>
-            <span className="text-[8px] bg-neutral-900 border border-[#222222] text-[#A3A3A3] font-mono px-1 rounded">
-              Role Tester
-            </span>
-          </div>
-
-          <p className="text-[9px] text-[#737373] leading-relaxed mb-3">
-            Para facilitar a homologação e testes de perfil, clique abaixo para acessar de forma instantânea com cada nível de permissão:
-          </p>
-
-          <div className="grid grid-cols-3 gap-2">
-            {users.map((u) => (
-              <button
-                key={u.id}
-                onClick={() => {
-                  setEmail(u.email);
-                  setPassword('vance123'); // auto prefill mock
-                  onLogin(u);
-                }}
-                className="p-1.5 bg-neutral-950 hover:bg-[#1A1A1A] border border-[#222222] hover:border-[#333333] rounded-lg transition-all flex flex-col items-center justify-center text-center group cursor-pointer"
-              >
-                <img
-                  src={u.avatar}
-                  alt={u.name}
-                  referrerPolicy="no-referrer"
-                  className="w-7 h-7 rounded-full object-cover border border-[#222222] group-hover:border-[#555555] transition-all"
-                />
-                <span className="text-[9px] font-semibold text-white truncate w-full mt-1.5" title={u.name}>
-                  {u.name.split(' ')[0]}
-                </span>
-                <span className="text-[8px] text-[#737373] uppercase tracking-wide mt-0.5 max-w-full truncate font-mono">
-                  {u.role}
-                </span>
-              </button>
-            ))}
           </div>
         </div>
       </div>
