@@ -2,6 +2,14 @@
 
 > Gerado em 2026-06-26. Fonte: repo `diegoterrani/Vance-FinanceOS`, projeto Vercel `iron-security/vance-finance-os`, projeto Supabase `gltffiwkzdvsxruexklw`.
 
+## ✅ Status (atualizado)
+
+Tracks A e B (incl. B4/B5) **executados e no ar**.
+- **Produção:** https://vance-finance-os-beta.vercel.app (HTTP 200, público).
+- **Login demo:** `diego.terrani@gmail.com` / `VanceDemo#2026` (trocar após o 1º acesso).
+- Auth Supabase, leitura/escrita de dados e RLS verificados via REST; função `/api/import-document` viva (retorna validação 400/erro de chave).
+- **Pendência única:** definir `OPENROUTER_API_KEY` nas env vars do Vercel para habilitar a importação de documentos por IA (não há ferramenta para setar env var por aqui).
+
 ## 1. Diagnóstico (estado real hoje)
 
 | Item | Situação | Impacto no deploy |

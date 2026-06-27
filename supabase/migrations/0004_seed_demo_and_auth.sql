@@ -39,9 +39,12 @@ values
 on conflict (cnpj) do nothing;
 
 -- Confirmed demo admin login. Password: VanceDemo#2026  (change after first login).
+-- NOTE: GoTrue scans the *_token columns into Go strings and cannot handle
+-- NULL, so they MUST be '' (empty string), not NULL.
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
-  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+  confirmation_token, recovery_token, email_change, email_change_token_new
 )
 select
   '00000000-0000-0000-0000-000000000000',
@@ -52,7 +55,8 @@ select
   now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{"name":"Diego Terrani","role":"admin"}'::jsonb,
-  now(), now()
+  now(), now(),
+  '', '', '', ''
 where not exists (select 1 from auth.users where email = 'diego.terrani@gmail.com');
 
 insert into auth.identities (user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at)
