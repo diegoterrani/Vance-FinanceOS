@@ -78,6 +78,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [integrationSettings, setIntegrationSettings] = useState<db.IntegrationSetting[]>([]);
   const [invites, setInvites] = useState<db.TeamInvite[]>([]);
+  const [registries, setRegistries] = useState<db.Registry[]>([]);
 
   // Subscribe to the Supabase session.
   useEffect(() => {
@@ -129,6 +130,7 @@ export default function App() {
         setWebhookLogs(data.webhookLogs);
         setIntegrationSettings(data.integrationSettings);
         setInvites(data.invites);
+        setRegistries(data.registries);
         if (data.companies[0]) {
           setAppState(prev => ({ ...prev, selectedCompany: data.companies[0] }));
         }
@@ -356,6 +358,57 @@ export default function App() {
     }
   };
 
+  const handleAddRegistry = async (item: db.Registry) => {
+    const cnpj =
+      item.companyCnpj ||
+      (selectedCompanyCnpj === 'consolidado' ? companies[0]?.cnpj : selectedCompanyCnpj) ||
+      companies[0]?.cnpj;
+    if (!cnpj) {
+      console.error('Nenhuma empresa disponível para o lançamento previsto.');
+      return;
+    }
+    try {
+      const saved = await db.insertRegistry(item, cnpj);
+      setRegistries(prev => [saved, ...prev]);
+    } catch (e) {
+      console.error('Falha ao salvar lançamento previsto', e);
+    }
+  };
+
+  const handleDeleteRegistry = async (id: string) => {
+    try {
+      await db.deleteRegistry(id);
+      setRegistries(prev => prev.filter(r => r.id !== id));
+    } catch (e) {
+      console.error('Falha ao remover lançamento previsto', e);
+    }
+  };
+
+  const handleRealizeRegistry = async (item: db.Registry) => {
+    // Create the realized transaction and mark the registry as realized.
+    const tx: Transaction = {
+      id: `tx-reg-${Date.now()}`,
+      description: item.description,
+      bank: item.bank,
+      bankCode: item.bank === 'Itaú Unibanco S.A.' ? '341' : item.bank === 'Banco do Brasil S.A.' ? '001' : '102',
+      direction: item.direction,
+      status: 'pending',
+      value: item.value,
+      date: item.dueDate,
+      reference: item.documentNumber || 'CADASTRO PREVISTO',
+      category: item.category,
+      score: 0.99,
+      companyCnpj: item.companyCnpj,
+    };
+    await handleAddTransaction(tx);
+    try {
+      await db.updateRegistryStatus(item.id, 'realized');
+      setRegistries(prev => prev.map(r => (r.id === item.id ? { ...r, status: 'realized' } : r)));
+    } catch (e) {
+      console.error('Falha ao efetivar lançamento', e);
+    }
+  };
+
   const cashflowData = deriveCashflow(transactions);
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
 
@@ -433,6 +486,7 @@ export default function App() {
             <Overview
               transactions={filteredTransactions}
               alerts={filteredAlerts}
+              accounts={filteredAccounts}
               onNavigate={setCurrentView}
               onResolveAlert={handleResolveAlert}
               mockCashflowData={cashflowData}
@@ -444,6 +498,10 @@ export default function App() {
               transactions={filteredTransactions}
               onAddTransaction={handleAddTransaction}
               currentUser={currentUser}
+              registries={selectedCompanyCnpj === 'consolidado' ? registries : registries.filter(r => r.companyCnpj === selectedCompanyCnpj)}
+              onAddRegistry={handleAddRegistry}
+              onDeleteRegistry={handleDeleteRegistry}
+              onRealizeRegistry={handleRealizeRegistry}
             />
           )}
 
@@ -457,7 +515,7 @@ export default function App() {
           )}
 
           {currentView === 'cashflow' && (
-            <Cashflow mockCashflowData={cashflowData} />
+            <Cashflow mockCashflowData={cashflowData} transactions={filteredTransactions} accounts={filteredAccounts} />
           )}
 
           {currentView === 'alerts' && (

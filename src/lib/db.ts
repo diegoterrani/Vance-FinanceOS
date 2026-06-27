@@ -137,9 +137,37 @@ const toInvite = (r: any): TeamInvite => ({
   status: r.status,
 });
 
+export interface Registry {
+  id: string;
+  companyCnpj?: string;
+  description: string;
+  direction: "inflow" | "outflow";
+  value: number;
+  dueDate: string;
+  bank: string;
+  category: string;
+  recurrence: "single" | "monthly" | "yearly";
+  status: "pending" | "realized";
+  documentNumber?: string;
+}
+
+const toRegistry = (r: any): Registry => ({
+  id: r.id,
+  companyCnpj: r.company_cnpj ?? undefined,
+  description: r.description,
+  direction: r.direction,
+  value: Number(r.value),
+  dueDate: r.due_date ?? "",
+  bank: r.bank ?? "",
+  category: r.category ?? "",
+  recurrence: r.recurrence ?? "single",
+  status: r.status ?? "pending",
+  documentNumber: r.document_number ?? undefined,
+});
+
 // ---------- reads ----------
 export async function fetchAll() {
-  const [companies, transactions, alerts, accounts, users, audit, webhooks, integrations, invites] =
+  const [companies, transactions, alerts, accounts, users, audit, webhooks, integrations, invites, registries] =
     await Promise.all([
       supabase.from("companies").select("*").order("razao_social"),
       supabase.from("transactions").select("*").order("date", { ascending: false }),
@@ -150,6 +178,7 @@ export async function fetchAll() {
       supabase.from("webhook_logs").select("*").order("timestamp", { ascending: false }),
       supabase.from("integration_settings").select("*"),
       supabase.from("team_invites").select("*").order("created_at", { ascending: false }),
+      supabase.from("registries").select("*").order("due_date", { ascending: true }),
     ]);
 
   return {
@@ -162,7 +191,41 @@ export async function fetchAll() {
     webhookLogs: (webhooks.data ?? []).map(toWebhookLog),
     integrationSettings: (integrations.data ?? []).map(toIntegration),
     invites: (invites.data ?? []).map(toInvite),
+    registries: (registries.data ?? []).map(toRegistry),
   };
+}
+
+export async function insertRegistry(item: Registry, companyCnpj: string): Promise<Registry> {
+  const userId = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { data, error } = await supabase
+    .from("registries")
+    .insert({
+      company_cnpj: companyCnpj,
+      description: item.description,
+      direction: item.direction,
+      value: item.value,
+      due_date: item.dueDate || null,
+      bank: item.bank,
+      category: item.category,
+      recurrence: item.recurrence,
+      status: item.status || "pending",
+      document_number: item.documentNumber ?? null,
+      created_by: userId,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return toRegistry(data);
+}
+
+export async function deleteRegistry(id: string) {
+  const { error } = await supabase.from("registries").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateRegistryStatus(id: string, status: string) {
+  const { error } = await supabase.from("registries").update({ status }).eq("id", id);
+  if (error) throw error;
 }
 
 export async function upsertIntegration(

@@ -129,7 +129,7 @@ export default function Login() {
             </div>
             <div>
               <p className="text-xs font-semibold text-white tracking-wide">Ecossistema Open Finance</p>
-              <p className="text-[10px] text-[#737373] mt-0.5">Sincronismo via Pluggy com Itaú, XP, Bradesco e mais.</p>
+              <p className="text-[10px] text-[#737373] mt-0.5">Integração via API REST bancária (PJ) com Itaú, BB, Bradesco e mais.</p>
             </div>
           </div>
         </div>
@@ -312,7 +312,7 @@ export default function Login() {
                   <p className="font-semibold text-white uppercase tracking-wider text-[8px] text-teal-400">Permissões Detalhadas do Papel:</p>
                   {role === 'viewer' && <p>• <strong>Apenas Leitura:</strong> Permissão de observação passiva de saldos e transações. Sem poder para criar lançamentos, conciliar, importar ou mexer em chaves de API.</p>}
                   {role === 'analista' && <p>• <strong>Operacional Analítico:</strong> Pode criar previsões e realizar a importação inteligente de boletos/NFs via IA. Bloqueado para validar conciliações de CNAB ou gerenciar conexões ERP.</p>}
-                  {role === 'tesouraria' && <p>• <strong>Fluxo Financeiro:</strong> Sincronismo de extratos via Pluggy, uploads de CNAB e reconciliação em lote. Bloqueado para gerenciar usuários ou deletar lançamentos permanentes.</p>}
+                  {role === 'tesouraria' && <p>• <strong>Fluxo Financeiro:</strong> Sincronismo de extratos via API REST bancária, uploads de CNAB e reconciliação em lote. Bloqueado para gerenciar usuários ou deletar lançamentos permanentes.</p>}
                   {role === 'gerencia' && <p>• <strong>Gestão Estratégica:</strong> Acompanhamento de fluxo de caixa previsto, configuração de limites e alertas de saldo. Bloqueado para gerenciar chaves e credenciais técnicas.</p>}
                   {role === 'diretor' && <p>• <strong>Supervisão Executiva:</strong> Visualização de faturamento do grupo, exportações estruturadas e auditoria. Bloqueado para redefinições de segurança e usuários.</p>}
                   {role === 'admin' && <p>• <strong>Controle Absoluto:</strong> Controle completo de chaves de API, webhook, convite e remoção de membros da equipe, alteração de certificados e redefinições gerais do sistema.</p>}

@@ -26,85 +26,24 @@ interface RegistersProps {
   transactions: Transaction[];
   onAddTransaction: (tx: Transaction) => void;
   currentUser: User;
+  registries?: RegistryItem[];
+  onAddRegistry?: (item: RegistryItem) => void;
+  onDeleteRegistry?: (id: string) => void;
+  onRealizeRegistry?: (item: RegistryItem) => void;
 }
 
-const INITIAL_REGISTERS: RegistryItem[] = [
-  {
-    id: 'reg-1',
-    description: 'CONTRATO ANUAL - GRUPO ALMEIDA',
-    direction: 'inflow',
-    value: 24500.00,
-    dueDate: '2026-06-25',
-    bank: 'Itaú Unibanco S.A.',
-    category: 'Contratos Clientes',
-    recurrence: 'monthly',
-    status: 'pending',
-    documentNumber: 'NF-6782'
-  },
-  {
-    id: 'reg-2',
-    description: 'DIÁRIAS SERVIÇO CONSULTORIA JÚNIOR',
-    direction: 'inflow',
-    value: 4800.00,
-    dueDate: '2026-06-28',
-    bank: 'XP Investimentos',
-    category: 'Honorários Extra',
-    recurrence: 'single',
-    status: 'pending',
-    documentNumber: 'NF-6789'
-  },
-  {
-    id: 'reg-3',
-    description: 'RESERVA SALDO RETIDO STRIPE OUTBOUND',
-    direction: 'inflow',
-    value: 3950.00,
-    dueDate: '2026-06-30',
-    bank: 'Itaú Unibanco S.A.',
-    category: 'Contratos Clientes',
-    recurrence: 'single',
-    status: 'pending'
-  },
-  {
-    id: 'reg-4',
-    description: 'RENOVAÇÃO LICENÇAS MICROSOFT 365',
-    direction: 'outflow',
-    value: -1280.00,
-    dueDate: '2026-06-24',
-    bank: 'Itaú Unibanco S.A.',
-    category: 'Sistemas e Softwares',
-    recurrence: 'monthly',
-    status: 'pending',
-    documentNumber: 'BOL-5532'
-  },
-  {
-    id: 'reg-5',
-    description: 'FORNECEDOR LOGÍSTICA SÃO PAULO',
-    direction: 'outflow',
-    value: -3100.00,
-    dueDate: '2026-06-25',
-    bank: 'Banco do Brasil S.A.',
-    category: 'Fornecedores e Logística',
-    recurrence: 'single',
-    status: 'pending',
-    documentNumber: 'BOL-7821'
-  },
-  {
-    id: 'reg-6',
-    description: 'PARCELAMENTO SIMPLES NACIONAL 04/12',
-    direction: 'outflow',
-    value: -4200.00,
-    dueDate: '2026-06-28',
-    bank: 'Banco do Brasil S.A.',
-    category: 'Impostos e Contribuições',
-    recurrence: 'monthly',
-    status: 'pending',
-    documentNumber: 'GPS-0412'
-  }
-];
+export default function Registers({
+  transactions,
+  onAddTransaction,
+  currentUser,
+  registries = [],
+  onAddRegistry,
+  onDeleteRegistry,
+  onRealizeRegistry
+}: RegistersProps) {
+  // Planned entries come from Supabase (no mock).
+  const registryList = registries;
 
-export default function Registers({ transactions, onAddTransaction, currentUser }: RegistersProps) {
-  const [registryList, setRegistryList] = useState<RegistryItem[]>(INITIAL_REGISTERS);
-  
   // Tab control: 'all' | 'inflow' | 'outflow'
   const [filterType, setFilterType] = useState<'all' | 'inflow' | 'outflow'>('all');
   
@@ -273,8 +212,8 @@ export default function Registers({ transactions, onAddTransaction, currentUser 
       documentNumber: documentNumber.trim() || undefined
     };
 
-    setRegistryList(prev => [newItem, ...prev]);
-    
+    onAddRegistry?.(newItem);
+
     // Reset form
     setDescription('');
     setValue('');
@@ -290,7 +229,7 @@ export default function Registers({ transactions, onAddTransaction, currentUser 
       alert(`Erro: Seu perfil de ${getRoleDisplayName(currentUser.role)} não tem permissão para remover lançamentos previstos.`);
       return;
     }
-    setRegistryList(prev => prev.filter(item => item.id !== id));
+    onDeleteRegistry?.(id);
     triggerFeedback('Lançamento removido.');
   };
 
@@ -300,30 +239,7 @@ export default function Registers({ transactions, onAddTransaction, currentUser 
       alert(`Erro: Seu perfil de ${getRoleDisplayName(currentUser.role)} não tem permissão para lançar extratos.`);
       return;
     }
-    const tx: Transaction = {
-      id: `tx-reg-${Date.now()}`,
-      description: item.description,
-      bank: item.bank,
-      bankCode: item.bank === 'Itaú Unibanco S.A.' ? '341' : item.bank === 'Banco do Brasil S.A.' ? '001' : '102',
-      direction: item.direction,
-      status: 'pending', // Becomes pending in core reconciliation list
-      value: item.value,
-      date: item.dueDate,
-      reference: item.documentNumber || 'CADASTRO PREVISTO',
-      category: item.category,
-      score: 0.99 // High confidence as it matches our registered data exactly
-    };
-
-    onAddTransaction(tx);
-
-    // Update state to realized
-    setRegistryList(prev => prev.map(r => {
-      if (r.id === item.id) {
-        return { ...r, status: 'realized' };
-      }
-      return r;
-    }));
-
+    onRealizeRegistry?.(item);
     triggerFeedback(`Lançamento realizado! "${item.description}" enviado para a Fila de Conciliação.`);
   };
 

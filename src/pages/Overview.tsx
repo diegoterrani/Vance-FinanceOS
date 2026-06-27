@@ -8,34 +8,48 @@ import { ArrowUpRight, ArrowDownRight, RefreshCw, AlertTriangle, FileSpreadsheet
 interface OverviewProps {
   transactions: Transaction[];
   alerts: Alert[];
+  accounts?: any[];
   onNavigate: (view: string) => void;
   onResolveAlert: (id: string) => void;
   mockCashflowData: any[];
 }
 
+const PALETTE = ['#0F7B6C', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444'];
+
 export default function Overview({
   transactions,
   alerts,
+  accounts = [],
   onNavigate,
   onResolveAlert,
   mockCashflowData
 }: OverviewProps) {
-  // Compute key stats
-  const totalBalance = 48320.00;
-  const inflowTotal = 15200.00;
-  const outflowTotal = -9870.00;
+  // Key stats computed from real data
+  const totalBalance = accounts.reduce((s, a) => s + (Number(a.balance) || 0), 0);
+  const inflowTotal = transactions
+    .filter(t => t.direction === 'inflow')
+    .reduce((s, t) => s + Math.abs(Number(t.value) || 0), 0);
+  const outflowTotal = -transactions
+    .filter(t => t.direction === 'outflow')
+    .reduce((s, t) => s + Math.abs(Number(t.value) || 0), 0);
   const pendingCount = transactions.filter(t => t.status === 'pending').length;
 
   const activeUnreadAlerts = alerts.filter(a => a.status === 'active');
 
   const recentTransactions = transactions.slice(0, 5);
 
-  // Category data for income & expense breakdowns
-  const categoryData = [
-    { name: 'Contratos Clientes', value: 38200.00, color: '#0F7B6C' },
-    { name: 'Juros e Rendimentos', value: 7420.00, color: '#3B82F6' },
-    { name: 'Honorários Extra', value: 2700.00, color: '#10B981' }
-  ];
+  // Income breakdown by category (inflows), computed from real data
+  const catMap = new Map<string, number>();
+  for (const t of transactions.filter(t => t.direction === 'inflow')) {
+    const k = t.category || 'Outros';
+    catMap.set(k, (catMap.get(k) || 0) + Math.abs(Number(t.value) || 0));
+  }
+  const categoryData = Array.from(catMap.entries()).map(([name, value], i) => ({
+    name,
+    value,
+    color: PALETTE[i % PALETTE.length]
+  }));
+  const categoryTotal = categoryData.reduce((s, c) => s + c.value, 0);
 
   return (
     <div className="space-y-6">
@@ -44,7 +58,7 @@ export default function Overview({
       <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Painel de Controle Financeiro</h1>
-          <p className="text-xs text-[var(--text-secondary)]">Dados operacionais consolidados e sincronizados via Open Finance</p>
+          <p className="text-xs text-[var(--text-secondary)]">Dados operacionais consolidados via integrações de API REST (PJ)</p>
         </div>
         <div className="flex gap-2 text-xs">
           <button
@@ -256,7 +270,7 @@ export default function Overview({
         <div>
           <CategoryBreakdownChart
             categories={categoryData}
-            total={48320.00}
+            total={categoryTotal}
             title="Detalhamento das Fontes de Receita"
           />
         </div>

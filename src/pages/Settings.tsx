@@ -197,24 +197,6 @@ export default function Settings({
     triggerSaveSuccess();
   };
 
-  const handleTogglePluggy = () => {
-    if (pluggyAccounts.length > 0) {
-      // Clear all
-      onUpdateState({ selectedCompany: { ...appState.selectedCompany } });
-    } else {
-      // Add standard Itaú
-      onAddPluggyAccount({
-        id: 'plug-itau',
-        name: 'Conta Corrente Corporativa',
-        type: 'checking',
-        bankName: 'Itaú Unibanco S.A.',
-        balance: 48320.00,
-        syncStatus: 'success',
-        lastSync: '06:00 Hoje'
-      });
-    }
-  };
-
   // ----------------------------------------------------
   // 4. TABS: BILLING & LIMITS
   // ----------------------------------------------------
@@ -361,6 +343,7 @@ export default function Settings({
   // 9. TABS: CONECTIVIDADE PORT (BANK API, MULTIPLE ACCOUNTS, ERP)
   // ----------------------------------------------------
   const [selectedBank, setSelectedBank] = useState('itau');
+  const [bankApiUrl, setBankApiUrl] = useState('');
   const [clientId, setClientId] = useState('');
   const [clientSecret, setClientSecret] = useState('');
   const [certUploaded, setCertUploaded] = useState(false);
@@ -419,6 +402,7 @@ export default function Settings({
     const s = integrationSettings?.find(
       (x: any) => x.companyCnpj === settingsCompanyCnpj && x.kind === 'bank_api' && x.ref === selectedBank,
     );
+    setBankApiUrl(s?.config?.bankApiUrl || '');
     setClientId(s?.config?.clientId || '');
     setClientSecret(s?.config?.clientSecret || '');
     setCertUploaded(!!s?.config?.certUploaded);
@@ -439,66 +423,38 @@ export default function Settings({
     }
   }, [selectedErp, integrationSettings, settingsCompanyCnpj]);
 
-  const handleTestBankApi = () => {
+  const handleTestBankApi = async () => {
     if (testingBankApi) return;
     setTestingBankApi(true);
     setBankApiLogs([
-      { time: getNowTime(), type: 'info', message: `Iniciando handshake síncrono com API do ${getBankFullName(selectedBank)} PJ...` }
+      { time: getNowTime(), type: 'info', message: `Testando conexão REST com a API do ${getBankFullName(selectedBank)} PJ...` }
     ]);
 
-    setTimeout(() => {
-      setBankApiLogs(prev => [
-        ...prev,
-        { time: getNowTime(), type: 'info', message: 'Resolvendo endpoint OAuth do gateway de homologação...' },
-        { time: getNowTime(), type: 'info', message: `Enviando Credenciais do Cliente: ${clientId ? 'PROVEC_CLIENT_ID' : 'Default Sandbox Token'}` }
-      ]);
-    }, 600);
-
-    setTimeout(() => {
-      if (!clientId && selectedBank !== 'nubank') {
-        setBankApiLogs(prev => [
-          ...prev,
-          { time: getNowTime(), type: 'warning', message: 'Nenhuma chave Client ID informada. Utilizando credencial provisória de testes (Sandbox).' }
-        ]);
-      }
-      setBankApiLogs(prev => [
-        ...prev,
-        { time: getNowTime(), type: 'info', message: 'Processando certificado digital A1 ICP-Brasil...' },
-        { time: getNowTime(), type: 'success', message: 'Autenticação de camada de segurança MTLS efetuada com sucesso.' }
-      ]);
-    }, 1200);
-
-    setTimeout(() => {
-      setBankApiLogs(prev => [
-        ...prev,
-        { time: getNowTime(), type: 'success', message: 'Conexão API estabelecida de forma síncrona!' },
-        { time: getNowTime(), type: 'info', message: `Sincronismo via Webhook API pronto em: https://vance.com.br/api/v1/webhooks/${selectedBank}` }
-      ]);
+    if (!bankApiUrl) {
+      setBankApiLogs(prev => [...prev, { time: getNowTime(), type: 'error', message: 'Informe a URL base da API REST do banco.' }]);
       setTestingBankApi(false);
-      onSaveIntegration?.('bank_api', selectedBank, { clientId, clientSecret, certUploaded: certUploaded || true }, 'connected');
+      return;
+    }
 
-      const bankNames: Record<string, string> = {
-        itau: 'Itaú Unibanco S.A.',
-        bradesco: 'Bradesco Net Empresa',
-        bb: 'Banco do Brasil S.A.',
-        santander: 'Santander PJ',
-        nubank: 'Nubank PJ'
-      };
-      
-      const exists = pluggyAccounts.some(acc => acc.bankName === bankNames[selectedBank]);
-      if (!exists) {
-        onAddPluggyAccount({
-          id: `acc-${Date.now()}`,
-          name: 'Conta Corrente Integrada',
-          type: 'checking',
-          bankName: bankNames[selectedBank] || 'Banco PJ Sincronizado',
-          balance: 75000.00,
-          syncStatus: 'success',
-          lastSync: 'Agora mesmo',
-          companyCnpj: companies?.[0]?.cnpj || '12345678000199'
-        });
-      }
-    }, 2000);
+    try {
+      // Real outbound HTTP request to the bank's REST endpoint.
+      const resp = await fetch('/api/test-integration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'bank_api', url: bankApiUrl, token: clientSecret })
+      });
+      const j = await resp.json();
+      setBankApiLogs(prev => [
+        ...prev,
+        { time: getNowTime(), type: 'info', message: `Requisição real enviada a: ${bankApiUrl}` },
+        { time: getNowTime(), type: j.ok ? 'success' : 'error', message: `${j.message} (HTTP ${j.status}, ${j.latencyMs}ms)` }
+      ]);
+      onSaveIntegration?.('bank_api', selectedBank, { bankApiUrl, clientId, clientSecret, certUploaded }, j.ok ? 'connected' : 'error');
+    } catch (e: any) {
+      setBankApiLogs(prev => [...prev, { time: getNowTime(), type: 'error', message: `Falha na chamada: ${e?.message || e}` }]);
+    } finally {
+      setTestingBankApi(false);
+    }
   };
 
   const handleTestErp = async () => {
@@ -1181,6 +1137,22 @@ export default function Settings({
                   </div>
 
                   <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">URL Base da API REST</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[var(--text-muted)]">
+                        <Globe size={12} />
+                      </span>
+                      <input
+                        type="url"
+                        placeholder="https://api.banco.com.br/openapi/v1"
+                        value={bankApiUrl}
+                        onChange={(e) => setBankApiUrl(e.target.value)}
+                        className="w-full bg-[var(--bg-input)] text-[var(--text-primary)] border border-[var(--border-soft)] rounded-lg py-2 pl-8 pr-3 text-xs focus:outline-none focus:border-brand font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Chave do Cliente (Client ID)</label>
                     <div className="relative">
                       <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-[var(--text-muted)]">
@@ -1694,32 +1666,28 @@ export default function Settings({
                 <p className="text-[10px] text-[var(--text-secondary)]">Gerencie suas conexões Open Finance e parametrizações de webhook externas</p>
               </div>
 
-              {/* Pluggy visual card */}
+              {/* Bank REST API connection card */}
               <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
                 <div className="sm:col-span-3 space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
-                    <h4 className="font-bold text-xs text-[var(--text-primary)]">Open Finance Sync (Pluggy SDK)</h4>
+                    <span className={`w-2.5 h-2.5 rounded-full ${pluggyAccounts.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-[var(--text-muted)]'}`}></span>
+                    <h4 className="font-bold text-xs text-[var(--text-primary)]">Integração Bancária via API REST (PJ)</h4>
                   </div>
                   <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
-                    Sincronização instantânea e autêntica de extrato unificado de contas de pessoa jurídica (Itaú, Banco do Brasil, Bradesco). Sorteando saldo operacional a cada 30 min.
+                    Conexão direta às APIs REST corporativas dos bancos (Itaú, Banco do Brasil, Bradesco, Santander) via Client ID/Secret e URL base. Configure as credenciais na aba "APIs Bancárias PJ".
                   </p>
                   <p className="font-mono text-[9px] text-[var(--text-muted)]">
-                    Contas sincronizadas: {pluggyAccounts.map(p => `${p.bankName} (R$ ${p.balance})`).join(', ') || 'Nenhuma'}
+                    Contas conectadas: {pluggyAccounts.map(p => `${p.bankName}`).join(', ') || 'Nenhuma'}
                   </p>
                 </div>
 
                 <div className="flex justify-end">
                   <button
-                    onClick={handleTogglePluggy}
+                    onClick={() => setActiveTab('bank-api')}
                     type="button"
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                      pluggyAccounts.length > 0
-                        ? 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20'
-                        : 'bg-brand text-white hover:bg-[var(--color-brand-light)]'
-                    }`}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer bg-brand text-white hover:bg-[var(--color-brand-light)]"
                   >
-                    {pluggyAccounts.length > 0 ? 'Revogar Acesso' : 'Conectar Conta'}
+                    Configurar API REST
                   </button>
                 </div>
               </div>
