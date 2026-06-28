@@ -431,6 +431,55 @@ export async function fetchCurrentTenant(userId: string): Promise<Tenant | null>
   return { id: data.id, name: data.name, status: data.status, trialEndsAt: (data as any).trial_ends_at ?? undefined, plan };
 }
 
+// Backoffice (super-admin): tenants + plans + financial KPIs + per-tenant usage.
+export async function fetchBackoffice() {
+  const [tenants, plans, profs, invoices, txs, companies] = await Promise.all([
+    supabase.from("tenants").select("*").order("created_at"),
+    supabase.from("plans").select("*").order("price_cents"),
+    supabase.from("profiles").select("id,email,name,tenant_id,role"),
+    supabase.from("invoices").select("tenant_id,amount_cents,status"),
+    supabase.from("transactions").select("tenant_id"),
+    supabase.from("companies").select("tenant_id"),
+  ]);
+  const planById = new Map((plans.data ?? []).map((p: any) => [p.id, p]));
+  const profList = profs.data ?? [];
+  const inv = invoices.data ?? [];
+  const txList = txs.data ?? [];
+  const coList = companies.data ?? [];
+
+  const tenantList = (tenants.data ?? []).map((t: any) => ({
+    id: t.id, name: t.name, status: t.status, planId: t.plan_id,
+    trialEndsAt: t.trial_ends_at, pastDueSince: t.past_due_since, createdAt: t.created_at,
+    plan: planById.get(t.plan_id) || null,
+    owner: profList.find((p: any) => p.id === t.owner_id) || null,
+    userCount: profList.filter((p: any) => p.tenant_id === t.id).length,
+    txCount: txList.filter((x: any) => x.tenant_id === t.id).length,
+    companyCount: coList.filter((x: any) => x.tenant_id === t.id).length,
+  }));
+
+  const active = tenantList.filter((t) => t.status === "active");
+  const finance = {
+    mrr: active.reduce((s, t) => s + (t.plan?.price_cents || 0), 0),
+    active: active.length,
+    trialing: tenantList.filter((t) => t.status === "trialing").length,
+    pastDue: tenantList.filter((t) => t.status === "past_due").length,
+    suspended: tenantList.filter((t) => t.status === "suspended").length,
+    received: inv.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0),
+    open: inv.filter((i: any) => i.status === "open" || i.status === "overdue").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0),
+  };
+  return { tenants: tenantList, plans: (plans.data ?? []) as any[], finance };
+}
+
+export async function updateTenantFields(id: string, fields: Record<string, any>) {
+  const { error } = await supabase.from("tenants").update(fields).eq("id", id);
+  if (error) throw error;
+}
+
+export async function savePlan(p: { id?: string; code: string; name: string; price_cents: number; limits: any; active: boolean }) {
+  const { error } = await supabase.from("plans").upsert(p, { onConflict: "code" });
+  if (error) throw error;
+}
+
 // Backoffice (super-admin): all tenants enriched with plan + owner + user count.
 export async function fetchAllTenants() {
   const [tenants, plans, profs] = await Promise.all([
