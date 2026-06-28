@@ -35,12 +35,12 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center bg-[#0A0A0A] text-[#F5F5F5] font-sans px-4">
+    <div className="min-h-screen flex flex-col justify-center items-center bg-[var(--bg-app)] text-[var(--text-primary)] font-sans px-4">
       <div className="mb-8"><Logo showText={true} size="md" /></div>
-      <div className="w-full max-w-md bg-neutral-950/80 p-6 sm:p-8 rounded-2xl border border-[#222222] backdrop-blur-md shadow-2xl">
+      <div className="w-full max-w-md bg-[var(--bg-card)] p-6 sm:p-8 rounded-2xl border border-[var(--border-soft)] backdrop-blur-md shadow-2xl">
         <div className="text-center mb-6">
           <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">Definir nova senha</h2>
-          <p className="text-[#A3A3A3] text-xs mt-1.5">Crie uma nova senha de acesso para sua conta.</p>
+          <p className="text-[var(--text-secondary)] text-xs mt-1.5">Crie uma nova senha de acesso para sua conta.</p>
         </div>
 
         {error && (
@@ -58,30 +58,30 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-[#A3A3A3] uppercase tracking-wider">Nova Senha</label>
+              <label className="text-[10px] font-medium text-[var(--text-secondary)] uppercase tracking-wider">Nova Senha</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#737373]"><Lock size={14} /></span>
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--text-muted)]"><Lock size={14} /></span>
                 <input
                   type="password"
                   placeholder="Mínimo 6 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#1A1A1A] text-white border border-[#222222] focus:border-[#555555] rounded-lg text-xs py-2.5 pl-9 pr-4 transition-all outline-none"
+                  className="w-full bg-[var(--bg-input)] text-white border border-[var(--border-soft)] focus:border-[var(--border-strong)] rounded-lg text-xs py-2.5 pl-9 pr-4 transition-all outline-none"
                   disabled={loading}
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-[#A3A3A3] uppercase tracking-wider">Confirmar Senha</label>
+              <label className="text-[10px] font-medium text-[var(--text-secondary)] uppercase tracking-wider">Confirmar Senha</label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#737373]"><Lock size={14} /></span>
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--text-muted)]"><Lock size={14} /></span>
                 <input
                   type="password"
                   placeholder="Repita a nova senha"
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
-                  className="w-full bg-[#1A1A1A] text-white border border-[#222222] focus:border-[#555555] rounded-lg text-xs py-2.5 pl-9 pr-4 transition-all outline-none"
+                  className="w-full bg-[var(--bg-input)] text-white border border-[var(--border-soft)] focus:border-[var(--border-strong)] rounded-lg text-xs py-2.5 pl-9 pr-4 transition-all outline-none"
                   disabled={loading}
                 />
               </div>
@@ -90,7 +90,7 @@ export default function ResetPassword({ onDone }: { onDone: () => void }) {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#F5F5F5] hover:bg-white text-[#0A0A0A] font-medium text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-lg disabled:opacity-50"
+              className="w-full bg-[var(--text-primary)] hover:bg-white text-[var(--bg-app)] font-medium text-xs py-2.5 rounded-lg transition-all flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-lg disabled:opacity-50"
             >
               {loading ? 'Salvando...' : 'Salvar nova senha'}
               <ArrowRight size={13} />

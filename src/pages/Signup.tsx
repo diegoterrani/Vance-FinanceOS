@@ -72,13 +72,13 @@ export default function Signup() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-[#0A0A0A] text-[#F5F5F5] font-sans px-4 py-12">
+    <div className="min-h-screen grid place-items-center bg-[var(--bg-app)] text-[var(--text-primary)] font-sans px-4 py-12">
       <div className="w-full max-w-md">
         <div className="flex justify-center mb-8"><Logo showText size="md" className="text-white" /></div>
-        <div className="bg-neutral-950/80 p-6 sm:p-8 rounded-2xl border border-[#222222] shadow-2xl">
+        <div className="bg-[var(--bg-card)] p-6 sm:p-8 rounded-2xl border border-[var(--border-soft)] shadow-2xl">
           <div className="text-center mb-6">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Criar conta</h1>
-            <p className="text-[#A3A3A3] text-xs mt-1.5">
+            <p className="text-[var(--text-secondary)] text-xs mt-1.5">
               Plano <strong className="text-white">{PLAN_LABEL[plan] || 'Starter'}</strong> · 14 dias grátis, sem cartão.
             </p>
           </div>
@@ -100,13 +100,13 @@ export default function Signup() {
             <Field icon={<Mail size={14} />} type="email" placeholder="E-mail corporativo" value={email} onChange={setEmail} disabled={loading} />
             <Field icon={<Lock size={14} />} type="password" placeholder="Senha (mín. 6 caracteres)" value={password} onChange={setPassword} disabled={loading} />
             <button type="submit" disabled={loading}
-              className="w-full bg-[#F5F5F5] hover:bg-white text-[#0A0A0A] font-medium text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 mt-2 disabled:opacity-50">
+              className="w-full bg-[var(--text-primary)] hover:bg-white text-[var(--bg-app)] font-medium text-xs py-2.5 rounded-lg flex items-center justify-center gap-1.5 mt-2 disabled:opacity-50">
               {loading ? 'Criando conta...' : 'Começar trial de 14 dias'} <ArrowRight size={13} />
             </button>
           </form>
 
-          <p className="mt-6 pt-5 border-t border-[#222222] text-center text-xs text-[#737373]">
-            Já tem conta? <Link to="/" className="text-[#A3A3A3] font-semibold hover:text-white">Fazer login</Link>
+          <p className="mt-6 pt-5 border-t border-[var(--border-soft)] text-center text-xs text-[var(--text-muted)]">
+            Já tem conta? <Link to="/" className="text-[var(--text-secondary)] font-semibold hover:text-white">Fazer login</Link>
           </p>
         </div>
       </div>
@@ -119,11 +119,11 @@ function Field({ icon, placeholder, value, onChange, type = 'text', disabled }: 
 }) {
   return (
     <div className="relative">
-      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[#737373]">{icon}</span>
+      <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-[var(--text-muted)]">{icon}</span>
       <input
         type={type} placeholder={placeholder} value={value} disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full bg-[#1A1A1A] text-white border border-[#222222] focus:border-[#555555] rounded-lg text-xs py-2.5 pl-9 pr-4 outline-none transition-all"
+        className="w-full bg-[var(--bg-input)] text-white border border-[var(--border-soft)] focus:border-[var(--border-strong)] rounded-lg text-xs py-2.5 pl-9 pr-4 outline-none transition-all"
       />
     </div>
   );

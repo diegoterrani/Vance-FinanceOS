@@ -8,8 +8,8 @@ import * as db from '../lib/db';
 
 const STATUS_STYLE: Record<string, string> = {
   trialing: 'bg-blue-500/10 text-blue-400', active: 'bg-emerald-500/10 text-emerald-400',
-  past_due: 'bg-amber-500/10 text-amber-400', suspended: 'bg-red-500/10 text-red-400', canceled: 'bg-neutral-500/10 text-neutral-400',
-  open: 'bg-blue-500/10 text-blue-400', pending: 'bg-amber-500/10 text-amber-400', resolved: 'bg-emerald-500/10 text-emerald-400', closed: 'bg-neutral-500/10 text-neutral-400',
+  past_due: 'bg-amber-500/10 text-amber-400', suspended: 'bg-red-500/10 text-red-400', canceled: 'bg-neutral-500/10 text-[var(--text-secondary)]',
+  open: 'bg-blue-500/10 text-blue-400', pending: 'bg-amber-500/10 text-amber-400', resolved: 'bg-emerald-500/10 text-emerald-400', closed: 'bg-neutral-500/10 text-[var(--text-secondary)]',
 };
 const brl = (cents: number) => `R$ ${((cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 type Tab = 'overview' | 'tickets' | 'usage' | 'plans';
@@ -56,15 +56,15 @@ export default function Backoffice() {
   const setTenantStatus = async (id: string, status: string) => { await db.updateTenantFields(id, status === 'active' ? { status, past_due_since: null } : { status }); reload(); };
   const setTenantPlan = async (id: string, planId: string) => { await db.updateTenantFields(id, { plan_id: planId }); reload(); };
 
-  if (checking) return <div className="min-h-screen grid place-items-center bg-[#0A0A0A] text-white"><p className="text-xs text-[#A3A3A3] animate-pulse">Carregando backoffice…</p></div>;
+  if (checking) return <div className="min-h-screen grid place-items-center bg-[var(--bg-app)] text-white"><p className="text-xs text-[var(--text-secondary)] animate-pulse">Carregando backoffice…</p></div>;
   if (!session) return <Login />;
   if (!isSuper) return (
-    <div className="min-h-screen grid place-items-center bg-[#0A0A0A] text-white px-4">
+    <div className="min-h-screen grid place-items-center bg-[var(--bg-app)] text-white px-4">
       <div className="text-center max-w-sm">
         <ShieldAlert size={32} className="mx-auto text-red-500" />
         <h1 className="mt-3 text-lg font-bold">Acesso restrito</h1>
-        <p className="mt-1 text-xs text-[#A3A3A3]">Área exclusiva para super-administradores da Iron Security.</p>
-        <button onClick={logout} className="mt-5 text-xs font-semibold px-4 py-2 rounded-lg border border-[#2a2a2a] hover:bg-[#1a1a1a]">Sair</button>
+        <p className="mt-1 text-xs text-[var(--text-secondary)]">Área exclusiva para super-administradores da Iron Security.</p>
+        <button onClick={logout} className="mt-5 text-xs font-semibold px-4 py-2 rounded-lg border border-[var(--border-mid)] hover:bg-[var(--bg-card-hover)]">Sair</button>
       </div>
     </div>
   );
@@ -72,20 +72,20 @@ export default function Backoffice() {
   const f = data?.finance; const tenants = data?.tenants || []; const plans = data?.plans || [];
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5] font-sans">
-      <header className="flex items-center justify-between px-6 py-4 border-b border-[#1c1c1c]">
+    <div className="min-h-screen bg-[var(--bg-app)] text-[var(--text-primary)] font-sans">
+      <header className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-soft)]">
         <div className="flex items-center gap-3">
           <Logo showText size="sm" className="text-white" />
-          <span className="text-[10px] uppercase tracking-widest text-[#737373] border border-[#222] px-2 py-0.5 rounded">Backoffice</span>
+          <span className="text-[10px] uppercase tracking-widest text-[var(--text-muted)] border border-[var(--border-soft)] px-2 py-0.5 rounded">Backoffice</span>
         </div>
-        <button onClick={logout} className="flex items-center gap-1.5 text-xs text-[#A3A3A3] hover:text-white"><LogOut size={14} /> Sair</button>
+        <button onClick={logout} className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] hover:text-white"><LogOut size={14} /> Sair</button>
       </header>
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="flex gap-2 text-xs flex-wrap">
           {([['overview', 'Visão geral'], ['tickets', 'Chamados'], ['usage', 'Consumo'], ['plans', 'Planos']] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-lg font-semibold ${tab === t ? 'bg-[#1a1a1a] text-white border border-[#2a2a2a]' : 'text-[#A3A3A3] hover:text-white'}`}>
+              className={`px-3 py-1.5 rounded-lg font-semibold ${tab === t ? 'bg-[var(--bg-card-hover)] text-white border border-[var(--border-mid)]' : 'text-[var(--text-secondary)] hover:text-white'}`}>
               {label}{t === 'tickets' && tickets.filter(x => x.status === 'open').length > 0 ? ` (${tickets.filter(x => x.status === 'open').length})` : ''}
             </button>
           ))}
@@ -106,12 +106,12 @@ export default function Backoffice() {
               <Kpi icon={<AlertTriangle size={14} />} label="Suspensos" value={String(f?.suspended || 0)} accent="red" />
             </div>
 
-            <div className="rounded-xl bg-[#0E0E0E] border border-[#1c1c1c] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[#1c1c1c] text-sm font-semibold">Clientes (Tenants)</div>
+            <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)] overflow-hidden">
+              <div className="px-4 py-3 border-b border-[var(--border-soft)] text-sm font-semibold">Clientes (Tenants)</div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
-                  <thead className="text-[#737373] text-[10px] uppercase tracking-wider">
-                    <tr className="border-b border-[#1c1c1c]">
+                  <thead className="text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
+                    <tr className="border-b border-[var(--border-soft)]">
                       <th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Plano</th>
                       <th className="text-left px-4 py-2">Responsável</th><th className="text-right px-4 py-2">Users</th><th className="text-right px-4 py-2">Empr.</th>
                       <th className="text-right px-4 py-2">Lançam.</th><th className="text-right px-4 py-2">Ações</th>
@@ -119,15 +119,15 @@ export default function Backoffice() {
                   </thead>
                   <tbody>
                     {tenants.map(t => (
-                      <tr key={t.id} className="border-b border-[#161616] hover:bg-[#141414]">
-                        <td className="px-4 py-2.5 font-semibold">{t.name}{t.internal && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase bg-neutral-500/15 text-neutral-400">interno</span>}</td>
+                      <tr key={t.id} className="border-b border-[var(--border-soft)] hover:bg-[var(--bg-card-hover)]">
+                        <td className="px-4 py-2.5 font-semibold">{t.name}{t.internal && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase bg-neutral-500/15 text-[var(--text-secondary)]">interno</span>}</td>
                         <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_STYLE[t.status] || ''}`}>{t.status}</span></td>
                         <td className="px-4 py-2.5">
-                          <select value={t.planId || ''} onChange={e => setTenantPlan(t.id, e.target.value)} className="bg-[#1A1A1A] border border-[#222] rounded px-2 py-1 text-[11px]">
+                          <select value={t.planId || ''} onChange={e => setTenantPlan(t.id, e.target.value)} className="bg-[var(--bg-input)] border border-[var(--border-soft)] rounded px-2 py-1 text-[11px]">
                             {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </td>
-                        <td className="px-4 py-2.5 text-[#A3A3A3]">{t.owner?.email || '—'}</td>
+                        <td className="px-4 py-2.5 text-[var(--text-secondary)]">{t.owner?.email || '—'}</td>
                         <td className="px-4 py-2.5 text-right">{t.userCount}</td>
                         <td className="px-4 py-2.5 text-right">{t.companyCount}</td>
                         <td className="px-4 py-2.5 text-right">{t.txCount}</td>
@@ -139,7 +139,7 @@ export default function Backoffice() {
                         </td>
                       </tr>
                     ))}
-                    {tenants.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-[#737373]">Nenhum tenant.</td></tr>}
+                    {tenants.length === 0 && <tr><td colSpan={8} className="px-4 py-8 text-center text-[var(--text-muted)]">Nenhum tenant.</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -160,8 +160,8 @@ export default function Backoffice() {
 function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent?: string }) {
   const color = accent === 'emerald' ? 'text-emerald-400' : accent === 'amber' ? 'text-amber-400' : accent === 'red' ? 'text-red-400' : 'text-white';
   return (
-    <div className="p-4 rounded-xl bg-[#0E0E0E] border border-[#1c1c1c]">
-      <div className="flex items-center gap-2 text-[#A3A3A3] text-[11px]">{icon} {label}</div>
+    <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)]">
+      <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[11px]">{icon} {label}</div>
       <p className={`text-xl font-extrabold mt-1 ${color}`}>{value}</p>
     </div>
   );
@@ -184,44 +184,44 @@ function TicketsPanel({ tickets, onChanged }: { tickets: db.Ticket[]; onChanged:
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-      <div className="rounded-xl bg-[#0E0E0E] border border-[#1c1c1c] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[#1c1c1c] text-sm font-semibold flex items-center gap-2"><MessageSquare size={14} /> Chamados</div>
-        <div className="divide-y divide-[#161616] max-h-[60vh] overflow-y-auto">
+      <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[var(--border-soft)] text-sm font-semibold flex items-center gap-2"><MessageSquare size={14} /> Chamados</div>
+        <div className="divide-y divide-[var(--border-soft)] max-h-[60vh] overflow-y-auto">
           {tickets.map(t => (
-            <button key={t.id} onClick={() => open(t)} className={`w-full text-left px-4 py-3 hover:bg-[#141414] ${sel?.id === t.id ? 'bg-[#141414]' : ''}`}>
+            <button key={t.id} onClick={() => open(t)} className={`w-full text-left px-4 py-3 hover:bg-[var(--bg-card-hover)] ${sel?.id === t.id ? 'bg-[var(--bg-card-hover)]' : ''}`}>
               <div className="flex justify-between gap-2"><span className="text-xs font-semibold truncate">{t.subject}</span><span className={`px-1.5 py-0.5 rounded text-[9px] ${STATUS_STYLE[t.status] || ''}`}>{t.status}</span></div>
-              <p className="text-[10px] text-[#737373] mt-0.5">{t.tenantName || '—'}</p>
+              <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{t.tenantName || '—'}</p>
             </button>
           ))}
-          {tickets.length === 0 && <p className="px-4 py-8 text-center text-xs text-[#737373]">Nenhum chamado.</p>}
+          {tickets.length === 0 && <p className="px-4 py-8 text-center text-xs text-[var(--text-muted)]">Nenhum chamado.</p>}
         </div>
       </div>
 
-      <div className="lg:col-span-2 rounded-xl bg-[#0E0E0E] border border-[#1c1c1c]">
-        {!sel ? <p className="p-8 text-center text-xs text-[#737373]">Selecione um chamado.</p> : (
+      <div className="lg:col-span-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)]">
+        {!sel ? <p className="p-8 text-center text-xs text-[var(--text-muted)]">Selecione um chamado.</p> : (
           <div className="flex flex-col h-full">
-            <div className="px-4 py-3 border-b border-[#1c1c1c] flex items-center justify-between">
-              <div><p className="text-sm font-semibold">{sel.subject}</p><p className="text-[10px] text-[#737373]">{sel.tenantName}</p></div>
-              <select value={sel.status} onChange={e => setStatus(e.target.value)} className="bg-[#1A1A1A] border border-[#222] rounded px-2 py-1 text-[11px]">
+            <div className="px-4 py-3 border-b border-[var(--border-soft)] flex items-center justify-between">
+              <div><p className="text-sm font-semibold">{sel.subject}</p><p className="text-[10px] text-[var(--text-muted)]">{sel.tenantName}</p></div>
+              <select value={sel.status} onChange={e => setStatus(e.target.value)} className="bg-[var(--bg-input)] border border-[var(--border-soft)] rounded px-2 py-1 text-[11px]">
                 {['open', 'pending', 'resolved', 'closed'].map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div className="p-4 space-y-3 max-h-[45vh] overflow-y-auto">
               {msgs.map(m => (
-                <div key={m.id} className={`text-xs p-2.5 rounded-lg border ${m.internal ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[#141414] border-[#222]'}`}>
+                <div key={m.id} className={`text-xs p-2.5 rounded-lg border ${m.internal ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[var(--bg-card-hover)] border-[var(--border-soft)]'}`}>
                   {m.internal && <span className="text-[9px] uppercase text-amber-400 font-bold">nota interna</span>}
-                  <p className="text-[#ddd] whitespace-pre-wrap">{m.body}</p>
-                  <p className="text-[9px] text-[#737373] mt-1">{new Date(m.createdAt).toLocaleString('pt-BR')}</p>
+                  <p className="text-[var(--text-primary)] whitespace-pre-wrap">{m.body}</p>
+                  <p className="text-[9px] text-[var(--text-muted)] mt-1">{new Date(m.createdAt).toLocaleString('pt-BR')}</p>
                 </div>
               ))}
-              {msgs.length === 0 && <p className="text-xs text-[#737373]">Sem mensagens.</p>}
+              {msgs.length === 0 && <p className="text-xs text-[var(--text-muted)]">Sem mensagens.</p>}
             </div>
-            <div className="p-3 border-t border-[#1c1c1c] space-y-2">
+            <div className="p-3 border-t border-[var(--border-soft)] space-y-2">
               <textarea value={reply} onChange={e => setReply(e.target.value)} placeholder="Responder…" rows={2}
-                className="w-full bg-[#1A1A1A] border border-[#222] rounded-lg px-3 py-2 text-xs outline-none" />
+                className="w-full bg-[var(--bg-input)] border border-[var(--border-soft)] rounded-lg px-3 py-2 text-xs outline-none" />
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-1.5 text-[11px] text-[#A3A3A3]"><input type="checkbox" checked={internal} onChange={e => setInternal(e.target.checked)} /> Nota interna</label>
-                <button onClick={send} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white">Enviar</button>
+                <label className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)]"><input type="checkbox" checked={internal} onChange={e => setInternal(e.target.checked)} /> Nota interna</label>
+                <button onClick={send} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--text-primary)] text-[var(--bg-app)] hover:bg-white">Enviar</button>
               </div>
             </div>
           </div>
@@ -238,20 +238,20 @@ function UsagePanel({ tenants, usage }: { tenants: any[]; usage: Record<string, 
     return <span className={over ? 'text-red-400 font-bold' : ''}>{used}{limit >= 0 ? ` / ${limit}` : ' / ∞'}</span>;
   };
   return (
-    <div className="rounded-xl bg-[#0E0E0E] border border-[#1c1c1c] overflow-hidden">
-      <div className="px-4 py-3 border-b border-[#1c1c1c] text-sm font-semibold flex items-center gap-2"><Activity size={14} /> Consumo do mês</div>
+    <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)] overflow-hidden">
+      <div className="px-4 py-3 border-b border-[var(--border-soft)] text-sm font-semibold flex items-center gap-2"><Activity size={14} /> Consumo do mês</div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
-          <thead className="text-[#737373] text-[10px] uppercase tracking-wider">
-            <tr className="border-b border-[#1c1c1c]"><th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Plano</th><th className="text-right px-4 py-2">Transações</th><th className="text-right px-4 py-2">Importações IA</th></tr>
+          <thead className="text-[var(--text-muted)] text-[10px] uppercase tracking-wider">
+            <tr className="border-b border-[var(--border-soft)]"><th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Plano</th><th className="text-right px-4 py-2">Transações</th><th className="text-right px-4 py-2">Importações IA</th></tr>
           </thead>
           <tbody>
             {tenants.filter(t => !t.internal).map(t => {
               const u = usage[t.id] || {}; const lim = t.plan?.limits || {};
               return (
-                <tr key={t.id} className="border-b border-[#161616]">
+                <tr key={t.id} className="border-b border-[var(--border-soft)]">
                   <td className="px-4 py-2.5 font-semibold">{t.name}</td>
-                  <td className="px-4 py-2.5 text-[#A3A3A3]">{t.plan?.name || '—'}</td>
+                  <td className="px-4 py-2.5 text-[var(--text-secondary)]">{t.plan?.name || '—'}</td>
                   <td className="px-4 py-2.5 text-right">{cell(u.transaction || 0, lim.transactions_month ?? -1)}</td>
                   <td className="px-4 py-2.5 text-right">{cell(u.ai_import || 0, lim.ai_imports_month ?? -1)}</td>
                 </tr>
@@ -260,7 +260,7 @@ function UsagePanel({ tenants, usage }: { tenants: any[]; usage: Record<string, 
           </tbody>
         </table>
       </div>
-      <p className="px-4 py-2 text-[10px] text-[#737373]">Vermelho = acima do limite do plano. ∞ = ilimitado.</p>
+      <p className="px-4 py-2 text-[10px] text-[var(--text-muted)]">Vermelho = acima do limite do plano. ∞ = ilimitado.</p>
     </div>
   );
 }
@@ -274,12 +274,12 @@ function ImpersonationModal({ tenant, onClose }: { tenant: any; onClose: () => v
   }, [tenant.id]);
   return (
     <div className="fixed inset-0 z-50 bg-black/70 grid place-items-center p-4" onClick={onClose}>
-      <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-[#0E0E0E] border border-[#222] rounded-2xl" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-[#1c1c1c] flex items-center justify-between sticky top-0 bg-[#0E0E0E]">
-          <div><p className="text-sm font-bold">{tenant.name}</p><p className="text-[10px] text-[#737373]">Visão read-only (acesso auditado)</p></div>
-          <button onClick={onClose}><X size={18} className="text-[#A3A3A3] hover:text-white" /></button>
+      <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-soft)] rounded-2xl" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[var(--border-soft)] flex items-center justify-between sticky top-0 bg-[var(--bg-card)]">
+          <div><p className="text-sm font-bold">{tenant.name}</p><p className="text-[10px] text-[var(--text-muted)]">Visão read-only (acesso auditado)</p></div>
+          <button onClick={onClose}><X size={18} className="text-[var(--text-secondary)] hover:text-white" /></button>
         </div>
-        {!snap ? <p className="p-8 text-center text-xs text-[#737373]">Carregando…</p> : (
+        {!snap ? <p className="p-8 text-center text-xs text-[var(--text-muted)]">Carregando…</p> : (
           <div className="p-5 space-y-5 text-xs">
             <Section title={`Empresas (${snap.companies.length})`}>{snap.companies.map((c: any) => <React.Fragment key={c.cnpj}><Row a={c.nomeFantasia || c.razaoSocial} b={c.cnpj} /></React.Fragment>)}</Section>
             <Section title={`Usuários (${snap.users.length})`}>{snap.users.map((u: any) => <React.Fragment key={u.id}><Row a={u.name || u.email} b={`${u.email} · ${u.role}`} /></React.Fragment>)}</Section>
@@ -292,10 +292,10 @@ function ImpersonationModal({ tenant, onClose }: { tenant: any; onClose: () => v
   );
 }
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return <div><p className="text-[10px] uppercase tracking-wider text-[#737373] mb-1.5">{title}</p><div className="space-y-1">{children}</div></div>;
+  return <div><p className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5">{title}</p><div className="space-y-1">{children}</div></div>;
 }
 function Row({ a, b }: { a: string; b: string }) {
-  return <div className="flex justify-between gap-3 px-3 py-1.5 rounded bg-[#141414] border border-[#1c1c1c]"><span className="truncate">{a}</span><span className="text-[#A3A3A3] shrink-0">{b}</span></div>;
+  return <div className="flex justify-between gap-3 px-3 py-1.5 rounded bg-[var(--bg-card-hover)] border border-[var(--border-soft)]"><span className="truncate">{a}</span><span className="text-[var(--text-secondary)] shrink-0">{b}</span></div>;
 }
 
 // ---- Planos ----
@@ -320,25 +320,25 @@ function PlansEditor({ plans, onSaved }: { plans: any[]; onSaved: () => void }) 
   return (
     <div className="space-y-4">
       {plans.map(p => (
-        <div key={p.id} className="p-4 rounded-xl bg-[#0E0E0E] border border-[#1c1c1c]">
+        <div key={p.id} className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)]">
           <div className="flex flex-wrap items-end gap-4">
-            <div><label className="text-[10px] uppercase text-[#737373]">Código</label><p className="text-sm font-bold">{p.code}</p></div>
+            <div><label className="text-[10px] uppercase text-[var(--text-muted)]">Código</label><p className="text-sm font-bold">{p.code}</p></div>
             <Inp label="Nome" value={get(p, 'name')} onChange={(v: string) => set(p.code, { name: v })} />
             <Inp label="Preço (R$/mês)" type="number" value={String(draft[p.code]?.price_reais ?? (p.price_cents / 100))} onChange={(v: string) => set(p.code, { price_reais: v })} />
             {limitKeys.map(k => <React.Fragment key={k}><Inp label={k} type="number" w="w-24" value={String(getLimit(p, k))} onChange={(v: string) => setLim(p, k, v)} /></React.Fragment>)}
-            <label className="flex items-center gap-1.5 text-xs text-[#A3A3A3]"><input type="checkbox" checked={draft[p.code]?.active ?? p.active} onChange={e => set(p.code, { active: e.target.checked })} /> Ativo</label>
-            <button onClick={() => save(p)} disabled={saving === p.code} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white disabled:opacity-50"><Save size={13} /> {saving === p.code ? 'Salvando…' : 'Salvar'}</button>
+            <label className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]"><input type="checkbox" checked={draft[p.code]?.active ?? p.active} onChange={e => set(p.code, { active: e.target.checked })} /> Ativo</label>
+            <button onClick={() => save(p)} disabled={saving === p.code} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--text-primary)] text-[var(--bg-app)] hover:bg-white disabled:opacity-50"><Save size={13} /> {saving === p.code ? 'Salvando…' : 'Salvar'}</button>
           </div>
-          <p className="text-[10px] text-[#737373] mt-2">Limites: -1 = ilimitado.</p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-2">Limites: -1 = ilimitado.</p>
         </div>
       ))}
-      <p className="text-[11px] text-[#737373] flex items-center gap-1"><Plus size={12} /> Para criar um novo tier, me peça (precisa de um novo `code`); ou edite os existentes acima.</p>
+      <p className="text-[11px] text-[var(--text-muted)] flex items-center gap-1"><Plus size={12} /> Para criar um novo tier, me peça (precisa de um novo `code`); ou edite os existentes acima.</p>
     </div>
   );
 }
 function Inp({ label, value, onChange, type = 'text', w = 'w-40' }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string }) {
   return (
-    <div><label className="text-[10px] uppercase text-[#737373] block">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)} className={`${w} bg-[#1A1A1A] border border-[#222] rounded px-2 py-1.5 text-xs mt-0.5`} /></div>
+    <div><label className="text-[10px] uppercase text-[var(--text-muted)] block">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} className={`${w} bg-[var(--bg-input)] border border-[var(--border-soft)] rounded px-2 py-1.5 text-xs mt-0.5`} /></div>
   );
 }

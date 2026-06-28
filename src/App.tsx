@@ -450,9 +450,9 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[#0A0F1A] text-white">
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-[var(--bg-app)] text-white">
         <Logo showText={true} size="md" />
-        <p className="text-xs text-[#A3A3A3] animate-pulse">Carregando central financeira...</p>
+        <p className="text-xs text-[var(--text-secondary)] animate-pulse">Carregando central financeira...</p>
       </div>
     );
   }
@@ -463,18 +463,18 @@ export default function App() {
 
   if (tenant?.status === 'suspended') {
     return (
-      <div className="min-h-screen grid place-items-center bg-[#0A0F1A] text-white px-4">
+      <div className="min-h-screen grid place-items-center bg-[var(--bg-app)] text-white px-4">
         <div className="text-center max-w-md">
           <Logo showText size="md" className="justify-center" />
           <h1 className="mt-6 text-xl font-bold">Assinatura suspensa</h1>
-          <p className="mt-2 text-sm text-[#A3A3A3]">
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">
             O acesso a esta conta está suspenso por pendência de pagamento. Regularize a assinatura para reativar o Vance Expert.
           </p>
           <div className="mt-6 flex items-center justify-center gap-3">
-            <button onClick={() => startCheckout()} className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white">
+            <button onClick={() => startCheckout()} className="text-xs font-semibold px-4 py-2 rounded-lg bg-[var(--text-primary)] text-[var(--bg-app)] hover:bg-white">
               Assinar / Regularizar
             </button>
-            <button onClick={handleLogout} className="text-xs font-semibold px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">
+            <button onClick={handleLogout} className="text-xs font-semibold px-4 py-2 rounded-lg border border-[var(--border-mid)] hover:bg-white/10">
               Sair
             </button>
           </div>
