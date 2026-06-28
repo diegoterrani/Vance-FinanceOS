@@ -163,6 +163,24 @@ export default function App() {
     setSession(null);
   };
 
+  const startCheckout = async (planCode?: string) => {
+    const { data: { session: s } } = await supabase.auth.getSession();
+    const token = s?.access_token;
+    if (!token) return;
+    try {
+      const resp = await fetch('/api/mp/create-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(planCode ? { plan: planCode } : {}),
+      });
+      const j = await resp.json();
+      if (j.init_point) window.location.href = j.init_point;
+      else alert(j.error || 'Falha ao iniciar a assinatura.');
+    } catch (e: any) {
+      alert(e?.message || 'Falha ao iniciar a assinatura.');
+    }
+  };
+
   // Filtered lists based on individual CNPJ vs. Consolidado
   const filteredTransactions = selectedCompanyCnpj === 'consolidado'
     ? transactions
@@ -452,9 +470,14 @@ export default function App() {
           <p className="mt-2 text-sm text-[#A3A3A3]">
             O acesso a esta conta está suspenso por pendência de pagamento. Regularize a assinatura para reativar o Vance Expert.
           </p>
-          <button onClick={handleLogout} className="mt-6 text-xs font-semibold px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">
-            Sair
-          </button>
+          <div className="mt-6 flex items-center justify-center gap-3">
+            <button onClick={() => startCheckout()} className="text-xs font-semibold px-4 py-2 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white">
+              Assinar / Regularizar
+            </button>
+            <button onClick={handleLogout} className="text-xs font-semibold px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">
+              Sair
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -516,11 +539,17 @@ export default function App() {
           {trialDaysLeft !== null && (
             <div className="mb-4 px-4 py-2.5 rounded-lg border border-blue-500/20 bg-blue-500/5 text-xs text-blue-300 flex items-center justify-between gap-3">
               <span>Período de avaliação: <strong>{trialDaysLeft} dia(s)</strong> restante(s) do trial do plano {tenant?.plan?.name || ''}.</span>
+              <button onClick={() => startCheckout()} className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-blue-500/20 hover:bg-blue-500/30 text-blue-100">
+                Assinar agora
+              </button>
             </div>
           )}
           {tenant?.status === 'past_due' && (
-            <div className="mb-4 px-4 py-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-300">
-              Pagamento pendente. Regularize a assinatura para evitar a suspensão do acesso.
+            <div className="mb-4 px-4 py-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-300 flex items-center justify-between gap-3">
+              <span>Pagamento pendente. Regularize a assinatura para evitar a suspensão do acesso.</span>
+              <button onClick={() => startCheckout()} className="shrink-0 text-[11px] font-semibold px-3 py-1.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-100">
+                Regularizar
+              </button>
             </div>
           )}
           {currentView === 'overview' && (
