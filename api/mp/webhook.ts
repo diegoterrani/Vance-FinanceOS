@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import crypto from "node:crypto";
 import { supabaseAdmin } from "../_supabaseAdmin.js";
 
 // Mercado Pago webhook: validates signature, fetches the resource, and updates
