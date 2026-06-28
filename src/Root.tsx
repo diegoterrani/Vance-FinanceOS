@@ -3,6 +3,7 @@ import App from './App';
 import Backoffice from './pages/Backoffice';
 import Landing from './pages/Landing';
 import Signup from './pages/Signup';
+import Support from './pages/Support';
 import { detectShell } from './lib/hostShell';
 
 // Top-level shell selector (by hostname). Within the client app shell we use
@@ -15,6 +16,7 @@ export default function Root() {
     <BrowserRouter>
       <Routes>
         <Route path="/signup" element={<Signup />} />
+        <Route path="/suporte" element={<Support />} />
         <Route path="*" element={<App />} />
       </Routes>
     </BrowserRouter>

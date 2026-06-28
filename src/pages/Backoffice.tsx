@@ -1,26 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
-import { LogOut, ShieldAlert, Users, Layers, DollarSign, AlertTriangle, Save, Plus } from 'lucide-react';
+import { LogOut, ShieldAlert, Users, Layers, DollarSign, AlertTriangle, Save, Plus, Eye, X, MessageSquare, Activity } from 'lucide-react';
 import Logo from '../components/Logo';
 import Login from './Login';
 import { supabase } from '../lib/supabase';
 import * as db from '../lib/db';
 
 const STATUS_STYLE: Record<string, string> = {
-  trialing: 'bg-blue-500/10 text-blue-400',
-  active: 'bg-emerald-500/10 text-emerald-400',
-  past_due: 'bg-amber-500/10 text-amber-400',
-  suspended: 'bg-red-500/10 text-red-400',
-  canceled: 'bg-neutral-500/10 text-neutral-400',
+  trialing: 'bg-blue-500/10 text-blue-400', active: 'bg-emerald-500/10 text-emerald-400',
+  past_due: 'bg-amber-500/10 text-amber-400', suspended: 'bg-red-500/10 text-red-400', canceled: 'bg-neutral-500/10 text-neutral-400',
+  open: 'bg-blue-500/10 text-blue-400', pending: 'bg-amber-500/10 text-amber-400', resolved: 'bg-emerald-500/10 text-emerald-400', closed: 'bg-neutral-500/10 text-neutral-400',
 };
 const brl = (cents: number) => `R$ ${((cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+type Tab = 'overview' | 'tickets' | 'usage' | 'plans';
 
 export default function Backoffice() {
   const [session, setSession] = useState<Session | null>(null);
   const [checking, setChecking] = useState(true);
   const [isSuper, setIsSuper] = useState(false);
-  const [tab, setTab] = useState<'overview' | 'plans'>('overview');
+  const [tab, setTab] = useState<Tab>('overview');
   const [data, setData] = useState<{ tenants: any[]; plans: any[]; finance: any } | null>(null);
+  const [tickets, setTickets] = useState<db.Ticket[]>([]);
+  const [usage, setUsage] = useState<Record<string, Record<string, number>>>({});
+  const [impersonate, setImpersonate] = useState<any | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); if (!data.session) setChecking(false); });
@@ -28,7 +30,12 @@ export default function Backoffice() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const reload = async () => { try { setData(await db.fetchBackoffice()); } catch (e) { console.error(e); } };
+  const reload = async () => {
+    try {
+      const [bo, tk, us] = await Promise.all([db.fetchBackoffice(), db.fetchTickets(), db.fetchUsageThisMonth()]);
+      setData(bo); setTickets(tk); setUsage(us);
+    } catch (e) { console.error(e); }
+  };
 
   useEffect(() => {
     const uid = session?.user?.id;
@@ -46,11 +53,7 @@ export default function Backoffice() {
   }, [session?.user?.id]);
 
   const logout = async () => { await supabase.auth.signOut(); };
-
-  const setTenantStatus = async (id: string, status: string) => {
-    await db.updateTenantFields(id, status === 'active' ? { status, past_due_since: null } : { status });
-    reload();
-  };
+  const setTenantStatus = async (id: string, status: string) => { await db.updateTenantFields(id, status === 'active' ? { status, past_due_since: null } : { status }); reload(); };
   const setTenantPlan = async (id: string, planId: string) => { await db.updateTenantFields(id, { plan_id: planId }); reload(); };
 
   if (checking) return <div className="min-h-screen grid place-items-center bg-[#0A0A0A] text-white"><p className="text-xs text-[#A3A3A3] animate-pulse">Carregando backoffice…</p></div>;
@@ -66,9 +69,7 @@ export default function Backoffice() {
     </div>
   );
 
-  const f = data?.finance;
-  const tenants = data?.tenants || [];
-  const plans = data?.plans || [];
+  const f = data?.finance; const tenants = data?.tenants || []; const plans = data?.plans || [];
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5] font-sans">
@@ -81,11 +82,11 @@ export default function Backoffice() {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
-        <div className="flex gap-2 text-xs">
-          {(['overview', 'plans'] as const).map(t => (
+        <div className="flex gap-2 text-xs flex-wrap">
+          {([['overview', 'Visão geral'], ['tickets', 'Chamados'], ['usage', 'Consumo'], ['plans', 'Planos']] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg font-semibold ${tab === t ? 'bg-[#1a1a1a] text-white border border-[#2a2a2a]' : 'text-[#A3A3A3] hover:text-white'}`}>
-              {t === 'overview' ? 'Visão geral' : 'Planos'}
+              {label}{t === 'tickets' && tickets.filter(x => x.status === 'open').length > 0 ? ` (${tickets.filter(x => x.status === 'open').length})` : ''}
             </button>
           ))}
         </div>
@@ -111,23 +112,18 @@ export default function Backoffice() {
                 <table className="w-full text-xs">
                   <thead className="text-[#737373] text-[10px] uppercase tracking-wider">
                     <tr className="border-b border-[#1c1c1c]">
-                      <th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Status</th>
-                      <th className="text-left px-4 py-2">Plano</th><th className="text-left px-4 py-2">Responsável</th>
-                      <th className="text-right px-4 py-2">Users</th><th className="text-right px-4 py-2">Empresas</th>
+                      <th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Plano</th>
+                      <th className="text-left px-4 py-2">Responsável</th><th className="text-right px-4 py-2">Users</th><th className="text-right px-4 py-2">Empr.</th>
                       <th className="text-right px-4 py-2">Lançam.</th><th className="text-right px-4 py-2">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
                     {tenants.map(t => (
                       <tr key={t.id} className="border-b border-[#161616] hover:bg-[#141414]">
-                        <td className="px-4 py-2.5 font-semibold">
-                          {t.name}
-                          {t.internal && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide bg-neutral-500/15 text-neutral-400">interno</span>}
-                        </td>
+                        <td className="px-4 py-2.5 font-semibold">{t.name}{t.internal && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase bg-neutral-500/15 text-neutral-400">interno</span>}</td>
                         <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_STYLE[t.status] || ''}`}>{t.status}</span></td>
                         <td className="px-4 py-2.5">
-                          <select value={t.planId || ''} onChange={e => setTenantPlan(t.id, e.target.value)}
-                            className="bg-[#1A1A1A] border border-[#222] rounded px-2 py-1 text-[11px]">
+                          <select value={t.planId || ''} onChange={e => setTenantPlan(t.id, e.target.value)} className="bg-[#1A1A1A] border border-[#222] rounded px-2 py-1 text-[11px]">
                             {plans.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                           </select>
                         </td>
@@ -135,12 +131,11 @@ export default function Backoffice() {
                         <td className="px-4 py-2.5 text-right">{t.userCount}</td>
                         <td className="px-4 py-2.5 text-right">{t.companyCount}</td>
                         <td className="px-4 py-2.5 text-right">{t.txCount}</td>
-                        <td className="px-4 py-2.5 text-right">
-                          {['active', 'trialing', 'past_due'].includes(t.status) ? (
-                            <button onClick={() => setTenantStatus(t.id, 'suspended')} className="text-[10px] font-semibold px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20">Suspender</button>
-                          ) : (
-                            <button onClick={() => setTenantStatus(t.id, 'active')} className="text-[10px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20">Reativar</button>
-                          )}
+                        <td className="px-4 py-2.5 text-right whitespace-nowrap">
+                          <button onClick={() => setImpersonate(t)} title="Ver dados (read-only, auditado)" className="text-[10px] font-semibold px-2 py-1 rounded bg-[#1f2937]/40 text-blue-300 hover:bg-[#1f2937]/70 mr-1"><Eye size={11} className="inline" /> Ver</button>
+                          {['active', 'trialing', 'past_due'].includes(t.status)
+                            ? <button onClick={() => setTenantStatus(t.id, 'suspended')} className="text-[10px] font-semibold px-2 py-1 rounded bg-red-500/10 text-red-400 hover:bg-red-500/20">Suspender</button>
+                            : <button onClick={() => setTenantStatus(t.id, 'active')} className="text-[10px] font-semibold px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20">Reativar</button>}
                         </td>
                       </tr>
                     ))}
@@ -152,8 +147,12 @@ export default function Backoffice() {
           </>
         )}
 
+        {tab === 'tickets' && <TicketsPanel tickets={tickets} onChanged={reload} />}
+        {tab === 'usage' && <UsagePanel tenants={tenants} usage={usage} />}
         {tab === 'plans' && <PlansEditor plans={plans} onSaved={reload} />}
       </main>
+
+      {impersonate && <ImpersonationModal tenant={impersonate} onClose={() => setImpersonate(null)} />}
     </div>
   );
 }
@@ -168,55 +167,167 @@ function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: str
   );
 }
 
+// ---- Chamados ----
+function TicketsPanel({ tickets, onChanged }: { tickets: db.Ticket[]; onChanged: () => void }) {
+  const [sel, setSel] = useState<db.Ticket | null>(null);
+  const [msgs, setMsgs] = useState<any[]>([]);
+  const [reply, setReply] = useState('');
+  const [internal, setInternal] = useState(false);
+
+  const open = async (t: db.Ticket) => { setSel(t); setMsgs(await db.fetchTicketMessages(t.id)); };
+  const send = async () => {
+    if (!sel || !reply.trim()) return;
+    await db.addTicketMessage(sel.id, sel.tenantId, reply.trim(), internal);
+    setReply(''); setMsgs(await db.fetchTicketMessages(sel.id));
+  };
+  const setStatus = async (s: string) => { if (!sel) return; await db.updateTicketStatus(sel.id, s); onChanged(); setSel({ ...sel, status: s }); };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="rounded-xl bg-[#0E0E0E] border border-[#1c1c1c] overflow-hidden">
+        <div className="px-4 py-3 border-b border-[#1c1c1c] text-sm font-semibold flex items-center gap-2"><MessageSquare size={14} /> Chamados</div>
+        <div className="divide-y divide-[#161616] max-h-[60vh] overflow-y-auto">
+          {tickets.map(t => (
+            <button key={t.id} onClick={() => open(t)} className={`w-full text-left px-4 py-3 hover:bg-[#141414] ${sel?.id === t.id ? 'bg-[#141414]' : ''}`}>
+              <div className="flex justify-between gap-2"><span className="text-xs font-semibold truncate">{t.subject}</span><span className={`px-1.5 py-0.5 rounded text-[9px] ${STATUS_STYLE[t.status] || ''}`}>{t.status}</span></div>
+              <p className="text-[10px] text-[#737373] mt-0.5">{t.tenantName || '—'}</p>
+            </button>
+          ))}
+          {tickets.length === 0 && <p className="px-4 py-8 text-center text-xs text-[#737373]">Nenhum chamado.</p>}
+        </div>
+      </div>
+
+      <div className="lg:col-span-2 rounded-xl bg-[#0E0E0E] border border-[#1c1c1c]">
+        {!sel ? <p className="p-8 text-center text-xs text-[#737373]">Selecione um chamado.</p> : (
+          <div className="flex flex-col h-full">
+            <div className="px-4 py-3 border-b border-[#1c1c1c] flex items-center justify-between">
+              <div><p className="text-sm font-semibold">{sel.subject}</p><p className="text-[10px] text-[#737373]">{sel.tenantName}</p></div>
+              <select value={sel.status} onChange={e => setStatus(e.target.value)} className="bg-[#1A1A1A] border border-[#222] rounded px-2 py-1 text-[11px]">
+                {['open', 'pending', 'resolved', 'closed'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="p-4 space-y-3 max-h-[45vh] overflow-y-auto">
+              {msgs.map(m => (
+                <div key={m.id} className={`text-xs p-2.5 rounded-lg border ${m.internal ? 'bg-amber-500/5 border-amber-500/20' : 'bg-[#141414] border-[#222]'}`}>
+                  {m.internal && <span className="text-[9px] uppercase text-amber-400 font-bold">nota interna</span>}
+                  <p className="text-[#ddd] whitespace-pre-wrap">{m.body}</p>
+                  <p className="text-[9px] text-[#737373] mt-1">{new Date(m.createdAt).toLocaleString('pt-BR')}</p>
+                </div>
+              ))}
+              {msgs.length === 0 && <p className="text-xs text-[#737373]">Sem mensagens.</p>}
+            </div>
+            <div className="p-3 border-t border-[#1c1c1c] space-y-2">
+              <textarea value={reply} onChange={e => setReply(e.target.value)} placeholder="Responder…" rows={2}
+                className="w-full bg-[#1A1A1A] border border-[#222] rounded-lg px-3 py-2 text-xs outline-none" />
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-1.5 text-[11px] text-[#A3A3A3]"><input type="checkbox" checked={internal} onChange={e => setInternal(e.target.checked)} /> Nota interna</label>
+                <button onClick={send} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white">Enviar</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Consumo ----
+function UsagePanel({ tenants, usage }: { tenants: any[]; usage: Record<string, Record<string, number>> }) {
+  const cell = (used: number, limit: number) => {
+    const over = limit >= 0 && used > limit;
+    return <span className={over ? 'text-red-400 font-bold' : ''}>{used}{limit >= 0 ? ` / ${limit}` : ' / ∞'}</span>;
+  };
+  return (
+    <div className="rounded-xl bg-[#0E0E0E] border border-[#1c1c1c] overflow-hidden">
+      <div className="px-4 py-3 border-b border-[#1c1c1c] text-sm font-semibold flex items-center gap-2"><Activity size={14} /> Consumo do mês</div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-[#737373] text-[10px] uppercase tracking-wider">
+            <tr className="border-b border-[#1c1c1c]"><th className="text-left px-4 py-2">Tenant</th><th className="text-left px-4 py-2">Plano</th><th className="text-right px-4 py-2">Transações</th><th className="text-right px-4 py-2">Importações IA</th></tr>
+          </thead>
+          <tbody>
+            {tenants.filter(t => !t.internal).map(t => {
+              const u = usage[t.id] || {}; const lim = t.plan?.limits || {};
+              return (
+                <tr key={t.id} className="border-b border-[#161616]">
+                  <td className="px-4 py-2.5 font-semibold">{t.name}</td>
+                  <td className="px-4 py-2.5 text-[#A3A3A3]">{t.plan?.name || '—'}</td>
+                  <td className="px-4 py-2.5 text-right">{cell(u.transaction || 0, lim.transactions_month ?? -1)}</td>
+                  <td className="px-4 py-2.5 text-right">{cell(u.ai_import || 0, lim.ai_imports_month ?? -1)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="px-4 py-2 text-[10px] text-[#737373]">Vermelho = acima do limite do plano. ∞ = ilimitado.</p>
+    </div>
+  );
+}
+
+// ---- Impersonação read-only (auditada) ----
+function ImpersonationModal({ tenant, onClose }: { tenant: any; onClose: () => void }) {
+  const [snap, setSnap] = useState<any | null>(null);
+  useEffect(() => {
+    db.logImpersonation(tenant.id, 'backoffice read-only view');
+    db.fetchTenantSnapshot(tenant.id).then(setSnap);
+  }, [tenant.id]);
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 grid place-items-center p-4" onClick={onClose}>
+      <div className="w-full max-w-3xl max-h-[85vh] overflow-y-auto bg-[#0E0E0E] border border-[#222] rounded-2xl" onClick={e => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[#1c1c1c] flex items-center justify-between sticky top-0 bg-[#0E0E0E]">
+          <div><p className="text-sm font-bold">{tenant.name}</p><p className="text-[10px] text-[#737373]">Visão read-only (acesso auditado)</p></div>
+          <button onClick={onClose}><X size={18} className="text-[#A3A3A3] hover:text-white" /></button>
+        </div>
+        {!snap ? <p className="p-8 text-center text-xs text-[#737373]">Carregando…</p> : (
+          <div className="p-5 space-y-5 text-xs">
+            <Section title={`Empresas (${snap.companies.length})`}>{snap.companies.map((c: any) => <React.Fragment key={c.cnpj}><Row a={c.nomeFantasia || c.razaoSocial} b={c.cnpj} /></React.Fragment>)}</Section>
+            <Section title={`Usuários (${snap.users.length})`}>{snap.users.map((u: any) => <React.Fragment key={u.id}><Row a={u.name || u.email} b={`${u.email} · ${u.role}`} /></React.Fragment>)}</Section>
+            <Section title={`Contas (${snap.accounts.length})`}>{snap.accounts.map((a: any) => <React.Fragment key={a.id}><Row a={a.name} b={brl((a.balance || 0) * 100)} /></React.Fragment>)}</Section>
+            <Section title={`Lançamentos recentes (${snap.transactions.length})`}>{snap.transactions.map((t: any) => <React.Fragment key={t.id}><Row a={t.description} b={`${t.date} · ${brl((t.value || 0) * 100)}`} /></React.Fragment>)}</Section>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return <div><p className="text-[10px] uppercase tracking-wider text-[#737373] mb-1.5">{title}</p><div className="space-y-1">{children}</div></div>;
+}
+function Row({ a, b }: { a: string; b: string }) {
+  return <div className="flex justify-between gap-3 px-3 py-1.5 rounded bg-[#141414] border border-[#1c1c1c]"><span className="truncate">{a}</span><span className="text-[#A3A3A3] shrink-0">{b}</span></div>;
+}
+
+// ---- Planos ----
 function PlansEditor({ plans, onSaved }: { plans: any[]; onSaved: () => void }) {
   const [draft, setDraft] = useState<Record<string, any>>({});
   const [saving, setSaving] = useState('');
-
   const limitKeys = ['companies', 'users', 'transactions_month', 'ai_imports_month'];
   const get = (p: any, k: string) => (draft[p.code]?.[k] ?? p[k] ?? '');
   const getLimit = (p: any, k: string) => (draft[p.code]?.limits?.[k] ?? p.limits?.[k] ?? '');
   const set = (code: string, patch: any) => setDraft(d => ({ ...d, [code]: { ...d[code], ...patch } }));
   const setLim = (p: any, k: string, v: any) => set(p.code, { limits: { ...(draft[p.code]?.limits ?? p.limits ?? {}), [k]: Number(v) } });
-
   const save = async (p: any) => {
     setSaving(p.code);
     try {
-      await db.savePlan({
-        id: p.id, code: p.code,
-        name: get(p, 'name'),
+      await db.savePlan({ id: p.id, code: p.code, name: get(p, 'name'),
         price_cents: Math.round(Number(draft[p.code]?.price_reais ?? (p.price_cents / 100)) * 100),
-        limits: { ...p.limits, ...(draft[p.code]?.limits || {}) },
-        active: draft[p.code]?.active ?? p.active,
-      });
-      await onSaved();
-      setDraft(d => { const n = { ...d }; delete n[p.code]; return n; });
+        limits: { ...p.limits, ...(draft[p.code]?.limits || {}) }, active: draft[p.code]?.active ?? p.active });
+      await onSaved(); setDraft(d => { const n = { ...d }; delete n[p.code]; return n; });
     } catch (e: any) { alert('Falha ao salvar: ' + (e?.message || e)); }
     setSaving('');
   };
-
   return (
     <div className="space-y-4">
       {plans.map(p => (
         <div key={p.id} className="p-4 rounded-xl bg-[#0E0E0E] border border-[#1c1c1c]">
           <div className="flex flex-wrap items-end gap-4">
-            <div>
-              <label className="text-[10px] uppercase text-[#737373]">Código</label>
-              <p className="text-sm font-bold">{p.code}</p>
-            </div>
+            <div><label className="text-[10px] uppercase text-[#737373]">Código</label><p className="text-sm font-bold">{p.code}</p></div>
             <Inp label="Nome" value={get(p, 'name')} onChange={(v: string) => set(p.code, { name: v })} />
             <Inp label="Preço (R$/mês)" type="number" value={String(draft[p.code]?.price_reais ?? (p.price_cents / 100))} onChange={(v: string) => set(p.code, { price_reais: v })} />
-            {limitKeys.map(k => (
-              <React.Fragment key={k}>
-                <Inp label={k} type="number" w="w-24" value={String(getLimit(p, k))} onChange={(v: string) => setLim(p, k, v)} />
-              </React.Fragment>
-            ))}
-            <label className="flex items-center gap-1.5 text-xs text-[#A3A3A3]">
-              <input type="checkbox" checked={draft[p.code]?.active ?? p.active} onChange={e => set(p.code, { active: e.target.checked })} /> Ativo
-            </label>
-            <button onClick={() => save(p)} disabled={saving === p.code}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white disabled:opacity-50">
-              <Save size={13} /> {saving === p.code ? 'Salvando…' : 'Salvar'}
-            </button>
+            {limitKeys.map(k => <React.Fragment key={k}><Inp label={k} type="number" w="w-24" value={String(getLimit(p, k))} onChange={(v: string) => setLim(p, k, v)} /></React.Fragment>)}
+            <label className="flex items-center gap-1.5 text-xs text-[#A3A3A3]"><input type="checkbox" checked={draft[p.code]?.active ?? p.active} onChange={e => set(p.code, { active: e.target.checked })} /> Ativo</label>
+            <button onClick={() => save(p)} disabled={saving === p.code} className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white disabled:opacity-50"><Save size={13} /> {saving === p.code ? 'Salvando…' : 'Salvar'}</button>
           </div>
           <p className="text-[10px] text-[#737373] mt-2">Limites: -1 = ilimitado.</p>
         </div>
@@ -225,13 +336,9 @@ function PlansEditor({ plans, onSaved }: { plans: any[]; onSaved: () => void }) 
     </div>
   );
 }
-
 function Inp({ label, value, onChange, type = 'text', w = 'w-40' }: { label: string; value: string; onChange: (v: string) => void; type?: string; w?: string }) {
   return (
-    <div>
-      <label className="text-[10px] uppercase text-[#737373] block">{label}</label>
-      <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        className={`${w} bg-[#1A1A1A] border border-[#222] rounded px-2 py-1.5 text-xs mt-0.5`} />
-    </div>
+    <div><label className="text-[10px] uppercase text-[#737373] block">{label}</label>
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} className={`${w} bg-[#1A1A1A] border border-[#222] rounded px-2 py-1.5 text-xs mt-0.5`} /></div>
   );
 }

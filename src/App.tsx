@@ -628,6 +628,14 @@ export default function App() {
         </main>
 
       </div>
+
+      <a
+        href="/suporte"
+        title="Abrir suporte"
+        className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-soft)] text-[var(--text-primary)] text-xs font-semibold shadow-lg hover:bg-[var(--bg-card-hover)] transition-all"
+      >
+        Suporte
+      </a>
     </div>
   );
 }

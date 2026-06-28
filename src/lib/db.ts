@@ -485,6 +485,89 @@ export async function savePlan(p: { id?: string; code: string; name: string; pri
   if (error) throw error;
 }
 
+// ---------- F4: tickets ----------
+export interface Ticket {
+  id: string; tenantId: string; subject: string; status: string; priority: string;
+  createdAt: string; tenantName?: string;
+}
+const unwrap = (v: any) => (Array.isArray(v) ? v[0] : v);
+
+export async function fetchTickets(): Promise<Ticket[]> {
+  const { data, error } = await supabase
+    .from("tickets").select("*, tenant:tenants(name)").order("updated_at", { ascending: false });
+  if (error) return [];
+  return (data ?? []).map((t: any) => ({
+    id: t.id, tenantId: t.tenant_id, subject: t.subject, status: t.status, priority: t.priority,
+    createdAt: t.created_at, tenantName: unwrap(t.tenant)?.name,
+  }));
+}
+
+export async function createTicket(subject: string, priority = "normal"): Promise<Ticket> {
+  const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { data, error } = await supabase
+    .from("tickets").insert({ subject, priority, created_by: uid }).select("*, tenant:tenants(name)").single();
+  if (error) throw error;
+  return { id: data.id, tenantId: data.tenant_id, subject: data.subject, status: data.status, priority: data.priority, createdAt: data.created_at, tenantName: unwrap(data.tenant)?.name };
+}
+
+export async function fetchTicketMessages(ticketId: string) {
+  const { data, error } = await supabase
+    .from("ticket_messages").select("*").eq("ticket_id", ticketId).order("created_at");
+  if (error) return [];
+  return (data ?? []).map((m: any) => ({ id: m.id, authorId: m.author_id, body: m.body, internal: m.internal, createdAt: m.created_at }));
+}
+
+export async function addTicketMessage(ticketId: string, tenantId: string, body: string, internal = false) {
+  const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+  const { error } = await supabase.from("ticket_messages").insert({ ticket_id: ticketId, tenant_id: tenantId, author_id: uid, body, internal });
+  if (error) throw error;
+  await supabase.from("tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId);
+}
+
+export async function updateTicketStatus(id: string, status: string) {
+  const { error } = await supabase.from("tickets").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+// ---------- F4: metering ----------
+export async function recordUsage(kind: string, qty = 1) {
+  try { await supabase.from("usage_events").insert({ kind, qty }); } catch { /* ignore */ }
+}
+
+// Current-month usage per tenant, keyed by tenant_id -> { kind: total }.
+export async function fetchUsageThisMonth(): Promise<Record<string, Record<string, number>>> {
+  const start = new Date(); start.setDate(1); start.setHours(0, 0, 0, 0);
+  const { data, error } = await supabase.from("usage_events").select("tenant_id,kind,qty").gte("created_at", start.toISOString());
+  if (error) return {};
+  const map: Record<string, Record<string, number>> = {};
+  for (const r of data as any[]) {
+    map[r.tenant_id] = map[r.tenant_id] || {};
+    map[r.tenant_id][r.kind] = (map[r.tenant_id][r.kind] || 0) + (r.qty || 0);
+  }
+  return map;
+}
+
+// ---------- F4: impersonation (read-only) ----------
+export async function logImpersonation(tenantId: string, reason?: string) {
+  const uid = (await supabase.auth.getUser()).data.user?.id ?? null;
+  try { await supabase.from("impersonation_logs").insert({ super_admin_id: uid, tenant_id: tenantId, reason: reason ?? null }); } catch { /* ignore */ }
+}
+
+export async function fetchTenantSnapshot(tenantId: string) {
+  const [companies, txs, accounts, users] = await Promise.all([
+    supabase.from("companies").select("*").eq("tenant_id", tenantId),
+    supabase.from("transactions").select("*").eq("tenant_id", tenantId).order("date", { ascending: false }).limit(25),
+    supabase.from("accounts").select("*").eq("tenant_id", tenantId),
+    supabase.from("profiles").select("id,email,name,role,status").eq("tenant_id", tenantId),
+  ]);
+  return {
+    companies: (companies.data ?? []).map(toCompany),
+    transactions: (txs.data ?? []).map(toTransaction),
+    accounts: (accounts.data ?? []).map(toAccount),
+    users: (users.data ?? []).map(toUser),
+  };
+}
+
 // Backoffice (super-admin): all tenants enriched with plan + owner + user count.
 export async function fetchAllTenants() {
   const [tenants, plans, profs] = await Promise.all([
