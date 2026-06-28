@@ -50,7 +50,7 @@ export default function Landing() {
           Gestão de caixa, conciliação e emissão de notas para múltiplas empresas — com integrações bancárias e de ERP via API REST e importação de documentos por IA.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
-          <a href={`${APP_URL}/?signup=1`} className="inline-flex items-center gap-1.5 bg-[#F5F5F5] text-[#0A0A0A] font-semibold text-sm px-5 py-3 rounded-lg hover:bg-white transition-all">
+          <a href={`${APP_URL}/signup`} className="inline-flex items-center gap-1.5 bg-[#F5F5F5] text-[#0A0A0A] font-semibold text-sm px-5 py-3 rounded-lg hover:bg-white transition-all">
             Começar trial de 14 dias <ArrowRight size={15} />
           </a>
           <a href="#planos" className="text-sm font-semibold px-5 py-3 rounded-lg border border-[#2a2a2a] hover:bg-[#1a1a1a] transition-all">Ver planos</a>
@@ -95,7 +95,7 @@ export default function Landing() {
                   ) : null
                 ))}
               </ul>
-              <a href={`${APP_URL}/?signup=1&plan=${p.code}`} className={`mt-6 block text-center text-sm font-semibold px-4 py-2.5 rounded-lg transition-all ${i === 1 ? 'bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white' : 'border border-[#2a2a2a] hover:bg-[#1a1a1a]'}`}>
+              <a href={`${APP_URL}/signup?plan=${p.code}`} className={`mt-6 block text-center text-sm font-semibold px-4 py-2.5 rounded-lg transition-all ${i === 1 ? 'bg-[#F5F5F5] text-[#0A0A0A] hover:bg-white' : 'border border-[#2a2a2a] hover:bg-[#1a1a1a]'}`}>
                 Começar
               </a>
             </div>

@@ -1,13 +1,22 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
 import Backoffice from './pages/Backoffice';
 import Landing from './pages/Landing';
+import Signup from './pages/Signup';
 import { detectShell } from './lib/hostShell';
 
-// Top-level shell selector (by hostname). Path-based routing (/signup, /convite,
-// /checkout) arrives in F2 with react-router.
+// Top-level shell selector (by hostname). Within the client app shell we use
+// react-router for /signup (and future /convite, /checkout).
 export default function Root() {
   const shell = detectShell();
   if (shell === 'backoffice') return <Backoffice />;
   if (shell === 'landing') return <Landing />;
-  return <App />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/signup" element={<Signup />} />
+        <Route path="*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
