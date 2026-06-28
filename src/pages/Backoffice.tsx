@@ -101,7 +101,7 @@ export default function Backoffice() {
               <Kpi icon={<Users size={14} />} label="Em trial" value={String(f?.trialing || 0)} />
               <Kpi icon={<DollarSign size={14} />} label="Recebido" value={brl(f?.received || 0)} accent="emerald" />
               <Kpi icon={<DollarSign size={14} />} label="Em aberto" value={brl(f?.open || 0)} accent="amber" />
-              <Kpi icon={<Layers size={14} />} label="Tenants" value={String(tenants.length)} />
+              <Kpi icon={<Layers size={14} />} label="Clientes" value={String(f?.customers ?? 0)} />
               <Kpi icon={<AlertTriangle size={14} />} label="Suspensos" value={String(f?.suspended || 0)} accent="red" />
             </div>
 
@@ -120,7 +120,10 @@ export default function Backoffice() {
                   <tbody>
                     {tenants.map(t => (
                       <tr key={t.id} className="border-b border-[#161616] hover:bg-[#141414]">
-                        <td className="px-4 py-2.5 font-semibold">{t.name}</td>
+                        <td className="px-4 py-2.5 font-semibold">
+                          {t.name}
+                          {t.internal && <span className="ml-2 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wide bg-neutral-500/15 text-neutral-400">interno</span>}
+                        </td>
                         <td className="px-4 py-2.5"><span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${STATUS_STYLE[t.status] || ''}`}>{t.status}</span></td>
                         <td className="px-4 py-2.5">
                           <select value={t.planId || ''} onChange={e => setTenantPlan(t.id, e.target.value)}

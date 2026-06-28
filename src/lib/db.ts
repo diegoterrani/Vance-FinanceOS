@@ -436,13 +436,14 @@ export async function fetchBackoffice() {
   const [tenants, plans, profs, invoices, txs, companies] = await Promise.all([
     supabase.from("tenants").select("*").order("created_at"),
     supabase.from("plans").select("*").order("price_cents"),
-    supabase.from("profiles").select("id,email,name,tenant_id,role"),
+    supabase.from("profiles").select("id,email,name,tenant_id,role,is_super_admin"),
     supabase.from("invoices").select("tenant_id,amount_cents,status"),
     supabase.from("transactions").select("tenant_id"),
     supabase.from("companies").select("tenant_id"),
   ]);
   const planById = new Map((plans.data ?? []).map((p: any) => [p.id, p]));
   const profList = profs.data ?? [];
+  const superIds = new Set(profList.filter((p: any) => p.is_super_admin).map((p: any) => p.id));
   const inv = invoices.data ?? [];
   const txList = txs.data ?? [];
   const coList = companies.data ?? [];
@@ -452,18 +453,22 @@ export async function fetchBackoffice() {
     trialEndsAt: t.trial_ends_at, pastDueSince: t.past_due_since, createdAt: t.created_at,
     plan: planById.get(t.plan_id) || null,
     owner: profList.find((p: any) => p.id === t.owner_id) || null,
+    internal: superIds.has(t.owner_id),
     userCount: profList.filter((p: any) => p.tenant_id === t.id).length,
     txCount: txList.filter((x: any) => x.tenant_id === t.id).length,
     companyCount: coList.filter((x: any) => x.tenant_id === t.id).length,
   }));
 
-  const active = tenantList.filter((t) => t.status === "active");
+  // Financial KPIs consider customer tenants only (exclude internal/super-admin tenants).
+  const customers = tenantList.filter((t) => !t.internal);
+  const active = customers.filter((t) => t.status === "active");
   const finance = {
     mrr: active.reduce((s, t) => s + (t.plan?.price_cents || 0), 0),
     active: active.length,
-    trialing: tenantList.filter((t) => t.status === "trialing").length,
-    pastDue: tenantList.filter((t) => t.status === "past_due").length,
-    suspended: tenantList.filter((t) => t.status === "suspended").length,
+    trialing: customers.filter((t) => t.status === "trialing").length,
+    pastDue: customers.filter((t) => t.status === "past_due").length,
+    suspended: customers.filter((t) => t.status === "suspended").length,
+    customers: customers.length,
     received: inv.filter((i: any) => i.status === "paid").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0),
     open: inv.filter((i: any) => i.status === "open" || i.status === "overdue").reduce((s: number, i: any) => s + (i.amount_cents || 0), 0),
   };
