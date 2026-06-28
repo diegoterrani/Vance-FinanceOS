@@ -3,6 +3,7 @@ import { Transaction, TransactionDirection, User } from '../types';
 import CurrencyDisplay from '../components/finance/CurrencyDisplay';
 import { formatDate } from '../lib/formatters';
 import { hasPermission, getRoleDisplayName } from '../lib/permissions';
+import * as db from '../lib/db';
 import { 
   Plus, Trash2, Calendar, Banknote, Building, Tag, Check, ArrowUpRight, 
   ArrowDownRight, Trash, AlertCircle, ShoppingBag, Landmark, ArrowRight,
@@ -148,6 +149,7 @@ export default function Registers({
       }
 
       const data = await response.json();
+      db.recordUsage('ai_import'); // meter AI document import (fire-and-forget)
 
       if (data.description) setDescription(data.description.toUpperCase());
       if (data.direction) {

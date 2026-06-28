@@ -55,7 +55,14 @@ export default async function handler(req: any, res: any) {
         const cents = Math.round((pay.transaction_amount || 0) * 100);
         await supabaseAdmin.from("payments").insert({ tenant_id: tenantId, amount_cents: cents, status: pay.status, mp_payment_id: String(pay.id), method: pay.payment_method_id });
         if (pay.status === "approved") {
-          await supabaseAdmin.from("invoices").insert({ tenant_id: tenantId, amount_cents: cents, status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) });
+          // settle an existing open invoice; if none, record a paid one
+          const { data: settled } = await supabaseAdmin
+            .from("invoices")
+            .update({ status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) })
+            .eq("tenant_id", tenantId).eq("status", "open").select("id");
+          if (!settled || settled.length === 0) {
+            await supabaseAdmin.from("invoices").insert({ tenant_id: tenantId, amount_cents: cents, status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) });
+          }
           await supabaseAdmin.from("tenants").update({ status: "active", past_due_since: null }).eq("id", tenantId);
         }
       }

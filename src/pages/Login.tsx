@@ -96,7 +96,7 @@ export default function Login() {
               Sua tesouraria <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#A3A3A3] via-white to-[#555555]">automatizada</span> e em tempo real.
             </h1>
             <p className="text-xs text-[#A3A3A3] leading-relaxed">
-              Conecte suas contas corporativas através do Open Finance de forma imediata e concilie milhares de transações automaticamente com IA Vance.
+              Conecte suas contas corporativas via API REST bancária (PJ) e concilie milhares de transações automaticamente com a IA Vance.
             </p>
           </div>
         </div>

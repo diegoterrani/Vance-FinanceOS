@@ -24,11 +24,22 @@ export default async function handler(req: any, res: any) {
   let trialsExpired = 0;
   let suspended = 0;
 
+  const { data: plans } = await supabaseAdmin.from("plans").select("id,price_cents");
+  const priceById = new Map((plans || []).map((p: any) => [p.id, p.price_cents]));
+
   const { data: trials } = await supabaseAdmin
-    .from("tenants").select("id,name,trial_ends_at,owner_id").eq("status", "trialing");
+    .from("tenants").select("id,name,trial_ends_at,owner_id,plan_id").eq("status", "trialing");
   for (const t of trials || []) {
     if (t.trial_ends_at && new Date(t.trial_ends_at).getTime() < now) {
       await supabaseAdmin.from("tenants").update({ status: "past_due", past_due_since: new Date().toISOString() }).eq("id", t.id);
+      // open invoice for the plan amount (only if none open yet)
+      const { data: existing } = await supabaseAdmin.from("invoices").select("id").eq("tenant_id", t.id).eq("status", "open").limit(1);
+      if (!existing || existing.length === 0) {
+        await supabaseAdmin.from("invoices").insert({
+          tenant_id: t.id, amount_cents: priceById.get(t.plan_id) || 0,
+          status: "open", due_date: new Date().toISOString().slice(0, 10),
+        });
+      }
       trialsExpired++;
       const email = await ownerEmail(t.owner_id);
       if (email) await sendEmail(email, "Seu trial do Vance Expert terminou",
