@@ -408,3 +408,46 @@ export async function fetchProfile(userId: string): Promise<User | null> {
   if (error || !data) return null;
   return toUser(data);
 }
+
+// ---------- multi-tenant ----------
+export interface Tenant {
+  id: string;
+  name: string;
+  status: string;          // trialing | active | past_due | suspended | canceled
+  trialEndsAt?: string;
+  plan?: { code: string; name: string; price_cents?: number; limits?: any };
+}
+
+export async function fetchCurrentTenant(userId: string): Promise<Tenant | null> {
+  const { data: prof } = await supabase.from("profiles").select("tenant_id").eq("id", userId).single();
+  if (!prof?.tenant_id) return null;
+  const { data } = await supabase
+    .from("tenants")
+    .select("id,name,status,trial_ends_at, plan:plans(code,name,price_cents,limits)")
+    .eq("id", prof.tenant_id)
+    .single();
+  if (!data) return null;
+  const plan = Array.isArray((data as any).plan) ? (data as any).plan[0] : (data as any).plan;
+  return { id: data.id, name: data.name, status: data.status, trialEndsAt: (data as any).trial_ends_at ?? undefined, plan };
+}
+
+// Backoffice (super-admin): all tenants enriched with plan + owner + user count.
+export async function fetchAllTenants() {
+  const [tenants, plans, profs] = await Promise.all([
+    supabase.from("tenants").select("*").order("created_at"),
+    supabase.from("plans").select("id,code,name,price_cents"),
+    supabase.from("profiles").select("id,email,name,tenant_id,role"),
+  ]);
+  const planById = new Map((plans.data ?? []).map((p: any) => [p.id, p]));
+  const profList = profs.data ?? [];
+  return (tenants.data ?? []).map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    status: t.status,
+    trialEndsAt: t.trial_ends_at,
+    createdAt: t.created_at,
+    plan: planById.get(t.plan_id) || null,
+    owner: profList.find((p: any) => p.id === t.owner_id) || null,
+    userCount: profList.filter((p: any) => p.tenant_id === t.id).length,
+  }));
+}

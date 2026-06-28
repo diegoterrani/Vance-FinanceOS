@@ -78,6 +78,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [integrationSettings, setIntegrationSettings] = useState<db.IntegrationSetting[]>([]);
   const [invites, setInvites] = useState<db.TeamInvite[]>([]);
+  const [tenant, setTenant] = useState<db.Tenant | null>(null);
   const [registries, setRegistries] = useState<db.Registry[]>([]);
 
   // Subscribe to the Supabase session.
@@ -118,6 +119,9 @@ export default function App() {
           device: 'Navegador Web'
         }
       );
+      const t = await db.fetchCurrentTenant(uid);
+      if (active) setTenant(t);
+
       try {
         const data = await db.fetchAll();
         if (!active) return;
@@ -418,6 +422,9 @@ export default function App() {
 
   const cashflowData = deriveCashflow(transactions);
   const activeAlertCount = alerts.filter(a => a.status === 'active').length;
+  const trialDaysLeft = tenant?.status === 'trialing' && tenant.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(tenant.trialEndsAt).getTime() - Date.now()) / 86400000))
+    : null;
 
   if (recoveryMode) {
     return <ResetPassword onDone={() => setRecoveryMode(false)} />;
@@ -434,6 +441,23 @@ export default function App() {
 
   if (!currentUser) {
     return <Login />;
+  }
+
+  if (tenant?.status === 'suspended') {
+    return (
+      <div className="min-h-screen grid place-items-center bg-[#0A0F1A] text-white px-4">
+        <div className="text-center max-w-md">
+          <Logo showText size="md" className="justify-center" />
+          <h1 className="mt-6 text-xl font-bold">Assinatura suspensa</h1>
+          <p className="mt-2 text-sm text-[#A3A3A3]">
+            O acesso a esta conta está suspenso por pendência de pagamento. Regularize a assinatura para reativar o Vance Expert.
+          </p>
+          <button onClick={handleLogout} className="mt-6 text-xs font-semibold px-4 py-2 rounded-lg border border-white/20 hover:bg-white/10">
+            Sair
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -489,6 +513,16 @@ export default function App() {
 
         {/* 3. DOCK PAGE VIEW */}
         <main className="flex-1 p-6 max-w-7xl w-full mx-auto animate-fade-in pb-12">
+          {trialDaysLeft !== null && (
+            <div className="mb-4 px-4 py-2.5 rounded-lg border border-blue-500/20 bg-blue-500/5 text-xs text-blue-300 flex items-center justify-between gap-3">
+              <span>Período de avaliação: <strong>{trialDaysLeft} dia(s)</strong> restante(s) do trial do plano {tenant?.plan?.name || ''}.</span>
+            </div>
+          )}
+          {tenant?.status === 'past_due' && (
+            <div className="mb-4 px-4 py-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 text-xs text-amber-300">
+              Pagamento pendente. Regularize a assinatura para evitar a suspensão do acesso.
+            </div>
+          )}
           {currentView === 'overview' && (
             <Overview
               transactions={filteredTransactions}
