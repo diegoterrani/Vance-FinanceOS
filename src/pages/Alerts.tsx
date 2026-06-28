@@ -26,7 +26,7 @@ export default function Alerts({
     <div className="space-y-6">
       
       {/* Page Header */}
-      <div className="flex justify-between items-center bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+      <div className="flex justify-between items-center bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Central de Alertas e Notificações</h1>
           <p className="text-xs text-[var(--text-secondary)]">Diagnósticos de saúde operacional do sistema, avisos tributários e limites de margem</p>

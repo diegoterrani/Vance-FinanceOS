@@ -61,7 +61,7 @@ export default function Cashflow({ mockCashflowData, transactions = [], accounts
     <div className="space-y-6">
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Painel Gerencial de Margem</h1>
           <p className="text-xs text-[var(--text-secondary)]">Projeções e saldos calculados a partir dos lançamentos reais (período: {period})</p>
@@ -153,7 +153,7 @@ export default function Cashflow({ mockCashflowData, transactions = [], accounts
               <p className="text-xs text-[var(--text-muted)] text-center py-6">Sem lançamentos no período. Adicione lançamentos ou conecte uma integração para ver os resultados.</p>
             )}
             {(mockCashflowData || []).map((m: any) => (
-              <div key={m.month} className="flex justify-between items-center p-2.5 rounded bg-black/15 border border-[var(--border-soft)]">
+              <div key={m.month} className="flex justify-between items-center p-2.5 rounded bg-[var(--bg-card-hover)] border border-[var(--border-soft)]">
                 <div className="flex items-center gap-2">
                   <Calendar size={13} className="text-brand" />
                   <span className="font-semibold text-xs text-[var(--text-primary)]">{m.month}</span>

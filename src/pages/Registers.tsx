@@ -263,7 +263,7 @@ export default function Registers({
     <div className="space-y-6">
       
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Contas a PAGAR/RECEBER</h1>
           <p className="text-xs text-[var(--text-secondary)]">Gerencie contas a pagar e a receber e realize integrações diretas na bancária</p>
@@ -312,7 +312,7 @@ export default function Registers({
             <div className={`p-4 rounded-xl border border-dashed flex flex-col items-center justify-center text-center transition-all relative ${
               isReadOnly 
                 ? 'bg-neutral-900/40 border-neutral-800 opacity-60' 
-                : 'bg-black/5 border-[var(--border-soft)] hover:bg-black/10'
+                : 'bg-[var(--bg-card)] border-[var(--border-soft)] hover:bg-[var(--bg-card)]'
             }`}>
               <input
                 type="file"
@@ -482,7 +482,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getOffsetDate(0)
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`Hoje: ${getOffsetDate(0)}`}
                   >
@@ -494,7 +494,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getOffsetDate(1)
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`Amanhã: ${getOffsetDate(1)}`}
                   >
@@ -506,7 +506,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getOffsetDate(5)
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`+5 Dias: ${getOffsetDate(5)}`}
                   >
@@ -518,7 +518,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getOffsetDate(15)
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`+15 Dias: ${getOffsetDate(15)}`}
                   >
@@ -530,7 +530,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getEndOfMonthDate()
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`Último dia do mês: ${getEndOfMonthDate()}`}
                   >
@@ -542,7 +542,7 @@ export default function Registers({
                     className={`px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer border ${
                       dueDate === getNextMonthFifth()
                         ? 'bg-brand/15 text-brand border-brand/35 font-semibold'
-                        : 'bg-black/10 text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-black/20'
+                        : 'bg-[var(--bg-card)] text-[var(--text-secondary)] border-transparent hover:text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                     }`}
                     title={`Dia 5 do próximo mês: ${getNextMonthFifth()}`}
                   >
@@ -704,7 +704,7 @@ export default function Registers({
                     <tr 
                       key={item.id} 
                       className={`hover:bg-[var(--bg-card-hover)] transition-colors ${
-                        !isPending ? 'opacity-65 bg-black/5' : ''
+                        !isPending ? 'opacity-65 bg-[var(--bg-card)]' : ''
                       }`}
                     >
                       <td className="py-3 px-3">

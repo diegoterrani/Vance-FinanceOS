@@ -128,7 +128,7 @@ export default function Sidebar({
 
       {/* Small Workspace Indicator in non-collapsed sidebar */}
       {!collapsed && (
-        <div className="p-3 border-t border-[var(--border-soft)] bg-black/10">
+        <div className="p-3 border-t border-[var(--border-soft)] bg-[var(--bg-card)]">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-teal-500/10 flex items-center justify-center text-teal-500 text-xs font-bold border border-teal-500/20">
               <Wallet size={15} />

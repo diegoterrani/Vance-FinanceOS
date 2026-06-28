@@ -587,7 +587,7 @@ export default function Settings({
       )}
 
       {/* Main Settings Header */}
-      <div className="bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+      <div className="bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <h1 className="text-xl font-bold text-[var(--text-primary)]">Configurações globais de acesso</h1>
         <p className="text-xs text-[var(--text-secondary)]">Gerenciamento de integrações API, chaves de autenticação de domínio, audit logs e LGPD</p>
       </div>
@@ -706,7 +706,7 @@ export default function Settings({
                     type="text"
                     value={appState.selectedCompany.razaoSocial}
                     disabled
-                    className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-black/10 text-[var(--text-muted)] focus:outline-none"
+                    className="w-full text-xs px-3 py-2 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-card)] text-[var(--text-muted)] focus:outline-none"
                   />
                 </div>
 
@@ -769,7 +769,7 @@ export default function Settings({
               </div>
 
               {/* Certificate A1 section */}
-              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 space-y-4">
+              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card-hover)] space-y-4">
                 <div className="flex gap-2">
                   <Lock className="text-brand flex-shrink-0" size={17} />
                   <div>
@@ -912,7 +912,7 @@ export default function Settings({
                 {users.map(user => (
                   <div
                     key={user.id}
-                    className={`p-3 rounded-lg border border-[var(--border-soft)] bg-black/10 flex flex-col sm:flex-row justify-between sm:items-center gap-3 ${
+                    className={`p-3 rounded-lg border border-[var(--border-soft)] bg-[var(--bg-card)] flex flex-col sm:flex-row justify-between sm:items-center gap-3 ${
                       user.status === 'inactive' ? 'opacity-40' : ''
                     }`}
                   >
@@ -1002,7 +1002,7 @@ export default function Settings({
 
               {/* Add Company form */}
               {showAddCompanyForm && (
-                <form onSubmit={handleAddCompanySubmit} className="p-4 bg-black/5 rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-up text-xs">
+                <form onSubmit={handleAddCompanySubmit} className="p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 gap-4 animate-slide-up text-xs">
                   <div className="space-y-1">
                     <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">CNPJ</label>
                     <input
@@ -1081,7 +1081,7 @@ export default function Settings({
                   {companies?.map((comp) => (
                     <div
                       key={comp.cnpj}
-                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/5 flex justify-between items-center hover:border-[var(--border-strong)] transition-all group animate-fade-in"
+                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] flex justify-between items-center hover:border-[var(--border-strong)] transition-all group animate-fade-in"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
@@ -1187,7 +1187,7 @@ export default function Settings({
                     />
                   </div>
 
-                  <div className="p-3 bg-black/10 rounded-lg border border-[var(--border-soft)] space-y-2">
+                  <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-soft)] space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-bold uppercase text-[var(--text-secondary)]">Certificado Digital (A1)</span>
                       {certUploaded && (
@@ -1202,7 +1202,7 @@ export default function Settings({
                       onClick={() => setCertUploaded(!certUploaded)}
                       className={`w-full py-1.5 text-center rounded-md border text-[10px] font-semibold cursor-pointer transition-colors ${
                         certUploaded
-                          ? 'bg-black/10 border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-black/20'
+                          ? 'bg-[var(--bg-card)] border-[var(--border-soft)] text-[var(--text-primary)] hover:bg-[var(--bg-card-hover)]'
                           : 'bg-brand/10 border-brand/20 text-brand hover:bg-brand/20'
                       }`}
                     >
@@ -1233,7 +1233,7 @@ export default function Settings({
                 </div>
 
                 {/* Console logger response */}
-                <div className="bg-black/40 rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
+                <div className="bg-[var(--bg-input)] rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
                   <div className="space-y-2 flex-1 overflow-y-auto text-[10px]">
                     <div className="flex items-center gap-1.5 text-[var(--text-secondary)] border-b border-[var(--border-soft)] pb-1.5 mb-2 shrink-0">
                       <Terminal size={12} className="text-[var(--text-muted)]" />
@@ -1301,7 +1301,7 @@ export default function Settings({
 
               {/* Add Account form */}
               {showAddAccountForm && (
-                <form onSubmit={handleAddAccountSubmit} className="p-4 bg-black/5 rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-slide-up text-xs">
+                <form onSubmit={handleAddAccountSubmit} className="p-4 bg-[var(--bg-card)] rounded-xl border border-[var(--border-soft)] grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 animate-slide-up text-xs">
                   <div className="space-y-1 col-span-1 sm:col-span-2 md:col-span-1">
                     <label className="text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Empresa Proprietária (CNPJ)</label>
                     <select
@@ -1422,7 +1422,7 @@ export default function Settings({
                   {pluggyAccounts.map((acc) => (
                     <div
                       key={acc.id}
-                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/5 flex justify-between items-start hover:border-[var(--border-strong)] transition-all group animate-fade-in"
+                      className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card)] flex justify-between items-start hover:border-[var(--border-strong)] transition-all group animate-fade-in"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
@@ -1551,7 +1551,7 @@ export default function Settings({
                   <div className="space-y-2">
                     <label className="text-[10px] uppercase font-bold text-[var(--text-secondary)] block">Sincronizar Mapeamento de Entidades</label>
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                      <label className="flex items-center gap-2 p-2 rounded bg-[var(--bg-card)] border border-[var(--border-soft)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={syncEntities.ap}
@@ -1561,7 +1561,7 @@ export default function Settings({
                         <span className="text-[10px] text-[var(--text-secondary)]">Contas a Pagar</span>
                       </label>
 
-                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                      <label className="flex items-center gap-2 p-2 rounded bg-[var(--bg-card)] border border-[var(--border-soft)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={syncEntities.ar}
@@ -1571,7 +1571,7 @@ export default function Settings({
                         <span className="text-[10px] text-[var(--text-secondary)]">Contas a Receber</span>
                       </label>
 
-                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                      <label className="flex items-center gap-2 p-2 rounded bg-[var(--bg-card)] border border-[var(--border-soft)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={syncEntities.clients_vendors}
@@ -1581,7 +1581,7 @@ export default function Settings({
                         <span className="text-[10px] text-[var(--text-secondary)]">Clientes &amp; Fornecedores</span>
                       </label>
 
-                      <label className="flex items-center gap-2 p-2 rounded bg-black/10 border border-[var(--border-soft)] cursor-pointer">
+                      <label className="flex items-center gap-2 p-2 rounded bg-[var(--bg-card)] border border-[var(--border-soft)] cursor-pointer">
                         <input
                           type="checkbox"
                           checked={syncEntities.bank_statements}
@@ -1616,7 +1616,7 @@ export default function Settings({
                 </div>
 
                 {/* ERP Debug Logger */}
-                <div className="bg-black/40 rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
+                <div className="bg-[var(--bg-input)] rounded-xl border border-[var(--border-soft)] p-4 font-mono flex flex-col justify-between h-[300px]">
                   <div className="space-y-2 flex-1 overflow-y-auto text-[10px]">
                     <div className="flex items-center justify-between text-[var(--text-secondary)] border-b border-[var(--border-soft)] pb-1.5 mb-2 shrink-0">
                       <div className="flex items-center gap-1.5">
@@ -1678,7 +1678,7 @@ export default function Settings({
               </div>
 
               {/* Bank REST API connection card */}
-              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card-hover)] grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
                 <div className="sm:col-span-3 space-y-1">
                   <div className="flex items-center gap-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${pluggyAccounts.length > 0 ? 'bg-green-500 animate-pulse' : 'bg-[var(--text-muted)]'}`}></span>
@@ -1704,7 +1704,7 @@ export default function Settings({
               </div>
 
               {/* NFe / SeS integration state */}
-              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card-hover)] flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div className="space-y-1">
                   <h4 className="font-bold text-xs text-[var(--text-primary)]">Faturamento Automatizado (NFe.io)</h4>
                   <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">Consumo direto da SEFAZ para registro e emissão síncrona de Notas Fiscais Eletrônicas de Serviços.</p>
@@ -1740,7 +1740,7 @@ export default function Settings({
                   {/* Webhook events checklist */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
                     {Object.entries(webhookEvents).map(([evt, enabled]) => (
-                      <label key={evt} className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] cursor-pointer bg-black/10 p-2 rounded border border-[var(--border-soft)]">
+                      <label key={evt} className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] cursor-pointer bg-[var(--bg-card)] p-2 rounded border border-[var(--border-soft)]">
                         <input
                           type="checkbox"
                           checked={enabled}
@@ -1757,7 +1757,7 @@ export default function Settings({
                 {/* Webhook logs mock table */}
                 <div className="space-y-1.5 pt-2">
                   <span className="text-[10px] uppercase font-bold text-[var(--text-secondary)]">Log recente de envios</span>
-                  <div className="max-h-24 overflow-y-auto divide-y divide-[var(--border-soft)] bg-black/20 p-2 rounded border border-[var(--border-soft)] text-[10px] font-mono">
+                  <div className="max-h-24 overflow-y-auto divide-y divide-[var(--border-soft)] bg-[var(--bg-card-hover)] p-2 rounded border border-[var(--border-soft)] text-[10px] font-mono">
                     {webhookLogs.map(log => (
                       <div key={log.id} className="py-1 flex justify-between items-center text-[9px]">
                         <span className="text-[var(--text-muted)]">{log.timestamp}</span>
@@ -1819,7 +1819,7 @@ export default function Settings({
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Faturas Recentes (Liquidadas via Asaas)</h4>
                 <div className="space-y-2 text-xs">
                   {invoices.map(inv => (
-                    <div key={inv.num} className="p-2 bg-black/15 rounded border border-[var(--border-soft)] flex justify-between items-center font-mono">
+                    <div key={inv.num} className="p-2 bg-[var(--bg-card-hover)] rounded border border-[var(--border-soft)] flex justify-between items-center font-mono">
                       <div>
                         <span className="font-bold text-[var(--text-primary)]">{inv.num}</span>
                         <span className="text-[10px] text-[var(--text-muted)] ml-3">Processado em {inv.date}</span>
@@ -2000,7 +2000,7 @@ export default function Settings({
               </div>
 
               {/* MFA TOTP Panel */}
-              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 space-y-4">
+              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card-hover)] space-y-4">
                 <div className="flex gap-2">
                   <ShieldCheck className="text-brand flex-shrink-0" size={17} />
                   <div>
@@ -2028,7 +2028,7 @@ export default function Settings({
                     {!mfaEnabled ? (
                       <>
                         <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed">
-                          1. Escaneie o código QR ou insira a chave secreta: <code className="font-bold font-mono text-teal-400 select-all bg-black/35 px-1 rounded">{mfaSecret}</code>
+                          1. Escaneie o código QR ou insira a chave secreta: <code className="font-bold font-mono text-teal-400 select-all bg-[var(--bg-input)] px-1 rounded">{mfaSecret}</code>
                         </p>
                         <p className="text-[10px] text-[var(--text-secondary)]">2. Insira o código gerado pelo aplicativo (Código padrão de teste: <code>123456</code>):</p>
                         <div className="flex gap-2">
@@ -2070,7 +2070,7 @@ export default function Settings({
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Sessões Conectadas Ativas</h4>
                 <div className="space-y-2 text-xs">
                   {activeSessions.map(sess => (
-                    <div key={sess.id} className="p-2.5 bg-black/15 rounded border border-[var(--border-soft)] flex justify-between items-center">
+                    <div key={sess.id} className="p-2.5 bg-[var(--bg-card-hover)] rounded border border-[var(--border-soft)] flex justify-between items-center">
                       <div className="flex gap-2 items-center">
                         <Smartphone size={13} className="text-brand" />
                         <div>
@@ -2098,9 +2098,9 @@ export default function Settings({
               {/* Readonly audit log trail table */}
               <div className="space-y-2.5 pt-2 border-t border-[var(--border-soft)]">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)]">Histórico de Auditorias de Acesso (Audit Log)</h4>
-                <div className="max-h-32 overflow-y-auto divide-y divide-[var(--border-soft)] bg-black/20 p-2.5 rounded border border-[var(--border-soft)] text-[10px] font-mono">
+                <div className="max-h-32 overflow-y-auto divide-y divide-[var(--border-soft)] bg-[var(--bg-card-hover)] p-2.5 rounded border border-[var(--border-soft)] text-[10px] font-mono">
                   {auditLogs.map(log => (
-                    <div key={log.id} className="py-1.5 flex justify-between items-center text-[9px] hover:bg-black/10 px-1 rounded">
+                    <div key={log.id} className="py-1.5 flex justify-between items-center text-[9px] hover:bg-[var(--bg-card)] px-1 rounded">
                       <span className="text-[var(--text-muted)]">{formatDateTime(log.timestamp)}</span>
                       <span className="text-[var(--text-primary)] leading-tight">{log.userName}</span>
                       <span className="font-semibold text-teal-400 truncate max-w-[150px]">{log.action}</span>
@@ -2124,7 +2124,7 @@ export default function Settings({
               </div>
 
               {/* Data checklist map representing our stored details */}
-              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-black/15 space-y-3 text-xs leading-relaxed">
+              <div className="p-4 rounded-xl border border-[var(--border-soft)] bg-[var(--bg-card-hover)] space-y-3 text-xs leading-relaxed">
                 <span className="font-bold text-xs text-[var(--text-primary)]">Mapa de Inventário de Dados Armazenados</span>
                 <p className="text-[10px] text-[var(--text-secondary)]">Para fins de transparência legal do Art. 9 LGPD, os seguintes dados são retidos criptografados neste tenant:</p>
                 
@@ -2140,7 +2140,7 @@ export default function Settings({
                 <span className="font-bold text-xs text-[var(--text-primary)]">Gestão de Consentimentos Vigentes</span>
                 
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-2 bg-black/10 rounded border border-[var(--border-soft)] cursor-pointer">
+                  <label className="flex items-center gap-3 p-2 bg-[var(--bg-card)] rounded border border-[var(--border-soft)] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={privacyAgreements.analytics}
@@ -2153,7 +2153,7 @@ export default function Settings({
                     </div>
                   </label>
 
-                  <label className="flex items-center gap-3 p-2 bg-black/10 rounded border border-[var(--border-soft)] cursor-pointer">
+                  <label className="flex items-center gap-3 p-2 bg-[var(--bg-card)] rounded border border-[var(--border-soft)] cursor-pointer">
                     <input
                       type="checkbox"
                       checked={privacyAgreements.of_sync}
@@ -2225,7 +2225,7 @@ export default function Settings({
                       className={`px-3 py-2.5 rounded-lg border text-center font-bold cursor-pointer transition-all ${
                         appState.theme === 'dark'
                           ? 'bg-brand/10 text-brand border-brand'
-                          : 'border-[var(--border-soft)] bg-black/10 hover:bg-[var(--bg-card-hover)]'
+                          : 'border-[var(--border-soft)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)]'
                       }`}
                     >
                       Dark Mode (Operational)
@@ -2236,7 +2236,7 @@ export default function Settings({
                       className={`px-3 py-2.5 rounded-lg border text-center font-bold cursor-pointer transition-all ${
                         appState.theme === 'light'
                           ? 'bg-brand/15 text-brand border-brand'
-                          : 'border-[var(--border-soft)] bg-black/10 hover:bg-[var(--bg-card-hover)]'
+                          : 'border-[var(--border-soft)] bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)]'
                       }`}
                     >
                       Light Mode (Executivo)

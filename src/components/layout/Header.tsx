@@ -91,7 +91,7 @@ export default function Header({
             </button>
             <button
               onClick={() => onResolveAlert(alert.id)}
-              className="bg-black/25 hover:bg-black/40 text-[10px] px-2 py-0.5 rounded font-mono uppercase"
+              className="bg-[var(--bg-card-hover)] hover:bg-[var(--bg-input)] text-[10px] px-2 py-0.5 rounded font-mono uppercase"
             >
               Encerrar
             </button>
@@ -131,7 +131,7 @@ export default function Header({
         </div>
 
         {/* Center Area: Selected Company Indicator & Selector */}
-        <div className="flex items-center gap-2 px-3 py-1 bg-black/30 rounded-full border border-[var(--border-soft)]">
+        <div className="flex items-center gap-2 px-3 py-1 bg-[var(--bg-input)] rounded-full border border-[var(--border-soft)]">
           <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shrink-0"></span>
           <span className="hidden sm:inline text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">Visão:</span>
           <select
@@ -192,7 +192,7 @@ export default function Header({
             {/* Notification Dropdown Panel */}
             {showNotificationDropdown && (
               <div className="absolute right-0 mt-2 w-80 bg-[var(--bg-card)] border border-[var(--border-strong)] rounded-xl shadow-2xl z-50 overflow-hidden text-xs">
-                <div className="p-3 border-b border-[var(--border-soft)] bg-black/10 flex items-center justify-between">
+                <div className="p-3 border-b border-[var(--border-soft)] bg-[var(--bg-card)] flex items-center justify-between">
                   <span className="font-semibold text-[var(--text-primary)]">Alertas Recentes ({unreadAlerts.length})</span>
                   <button
                     onClick={() => {
@@ -267,7 +267,7 @@ export default function Header({
                 </div>
                 
                 {onChangeRole && (
-                  <div className="px-3 py-2.5 border-b border-[var(--border-soft)] bg-black/15">
+                  <div className="px-3 py-2.5 border-b border-[var(--border-soft)] bg-[var(--bg-card-hover)]">
                     <p className="text-[9px] font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1.5 flex items-center gap-1">
                       <Shield size={10} className="text-teal-500 animate-pulse" />
                       Trocar Papel (Sandbox)

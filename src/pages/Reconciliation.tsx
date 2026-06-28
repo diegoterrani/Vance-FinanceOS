@@ -192,7 +192,7 @@ export default function Reconciliation({
     <div className="space-y-6">
       
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-black/5 p-4 rounded-xl border border-[var(--border-soft)]">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <div>
           <h1 className="text-xl font-bold text-[var(--text-primary)]">Conciliação Bancária Independente</h1>
           <p className="text-xs text-[var(--text-secondary)]">Faça a correspondência de extratos bancários com os registros do ERP Vance</p>
@@ -282,7 +282,7 @@ export default function Reconciliation({
             ></div>
           </div>
 
-          <div className="p-3 bg-black/25 rounded border border-[var(--border-soft)] font-mono text-[10px] text-[var(--text-secondary)] max-h-32 overflow-y-auto space-y-1">
+          <div className="p-3 bg-[var(--bg-card-hover)] rounded border border-[var(--border-soft)] font-mono text-[10px] text-[var(--text-secondary)] max-h-32 overflow-y-auto space-y-1">
             {parsedLinesLogs.map((log, idx) => (
               <p key={idx} className="flex gap-2">
                 <span className="text-teal-600">&gt;</span> {log}
@@ -390,7 +390,7 @@ export default function Reconciliation({
                 </button>
                 <button
                   onClick={() => setSelectedTxIds([])}
-                  className="bg-black/25 hover:bg-black/40 border border-[var(--border-soft)] text-[var(--text-secondary)] px-3 py-1.5 rounded transition-all cursor-pointer text-[11px]"
+                  className="bg-[var(--bg-card-hover)] hover:bg-[var(--bg-input)] border border-[var(--border-soft)] text-[var(--text-secondary)] px-3 py-1.5 rounded transition-all cursor-pointer text-[11px]"
                 >
                   Voltar
                 </button>
@@ -557,7 +557,7 @@ export default function Reconciliation({
               <div className="space-y-4">
                 
                 {/* System panel */}
-                <div className="p-3 rounded-lg bg-black/15 border border-[var(--border-soft)] space-y-1.5">
+                <div className="p-3 rounded-lg bg-[var(--bg-card-hover)] border border-[var(--border-soft)] space-y-1.5">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-brand">Registo no ERP Vance</span>
                   <p className="font-semibold text-[var(--text-primary)] font-sans">{activeDrawerTx.description}</p>
                   <p className="text-[10px] text-[var(--text-secondary)]">Categoria: <strong>{activeDrawerTx.category}</strong></p>
@@ -575,7 +575,7 @@ export default function Reconciliation({
                 )}
 
                 {/* Platform panel */}
-                <div className="p-3 rounded-lg bg-black/15 border border-[var(--border-soft)] space-y-1.5">
+                <div className="p-3 rounded-lg bg-[var(--bg-card-hover)] border border-[var(--border-soft)] space-y-1.5">
                   <span className="text-[9px] uppercase tracking-wider font-bold text-blue-400">Transação Extrato Sincronizado</span>
                   {activeDrawerTx.score ? (
                     <>
@@ -592,7 +592,7 @@ export default function Reconciliation({
                 </div>
 
                 {/* Total Value visual */}
-                <div className="flex justify-between items-center bg-black/10 p-3 rounded border border-[var(--border-soft)] font-mono text-base font-bold">
+                <div className="flex justify-between items-center bg-[var(--bg-card)] p-3 rounded border border-[var(--border-soft)] font-mono text-base font-bold">
                   <span>Valor Líquido:</span>
                   <CurrencyDisplay value={activeDrawerTx.value} colorize />
                 </div>
