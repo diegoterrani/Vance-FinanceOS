@@ -102,82 +102,96 @@ export default function Reconciliation({
     e.preventDefault();
     setIsDragOver(false);
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      simulateParsing(files[0].name, files[0].size);
-    }
+    if (files.length > 0) processStatement(files[0]);
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      simulateParsing(e.target.files[0].name, e.target.files[0].size);
-    }
+    if (e.target.files && e.target.files.length > 0) processStatement(e.target.files[0]);
+    if (e.target) e.target.value = '';
   };
 
-  // High fidelity parsing simulator
-  const simulateParsing = (filename: string, filesize: number) => {
-    if (filesize > 50 * 1024 * 1024) {
-      alert('Tamanho limite de arquivo excedido (max 50MB)');
-      return;
+  // Real OFX parser (handles OFX 1.x SGML and 2.x XML — same <STMTTRN> tags).
+  const parseOfx = (text: string) => {
+    const out: { memo: string; amount: number; date: string; fitid: string; type: string }[] = [];
+    const blocks = text.split(/<STMTTRN>/i).slice(1);
+    for (const b of blocks) {
+      const seg = b.split(/<\/STMTTRN>/i)[0];
+      const get = (tag: string) => {
+        const m = seg.match(new RegExp(`<${tag}>([^<\\r\\n]*)`, 'i'));
+        return m ? m[1].trim() : '';
+      };
+      const amount = parseFloat(get('TRNAMT'));
+      if (isNaN(amount)) continue;
+      const dt = get('DTPOSTED').replace(/[^0-9]/g, '');
+      const date = dt.length >= 8 ? `${dt.slice(0, 4)}-${dt.slice(4, 6)}-${dt.slice(6, 8)}` : '';
+      out.push({
+        memo: (get('MEMO') || get('NAME') || 'LANÇAMENTO IMPORTADO').toUpperCase().slice(0, 120),
+        amount,
+        date,
+        fitid: get('FITID'),
+        type: get('TRNTYPE'),
+      });
     }
-    const ext = filename.split('.').pop()?.toLowerCase();
-    if (!['ofx', 'cnab', 'ret', 'txt'].includes(ext || '')) {
-      alert('Formato incompatível. Formatos desejados: .ofx, .cnab, .ret, .txt');
+    return out;
+  };
+
+  // Real statement import: parse OFX, create pending transactions, suggest matches.
+  const processStatement = async (file: File) => {
+    if (file.size > 50 * 1024 * 1024) { alert('Tamanho limite de arquivo excedido (max 50MB)'); return; }
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!['ofx', 'qfx', 'txt'].includes(ext || '')) {
+      alert('Para conciliação automática, envie um extrato .OFX exportado do seu banco. (CNAB/.RET em breve.)');
       return;
     }
 
     setIsUploading(true);
-    setUploadProgress(10);
-    setParsedLinesLogs(['Iniciando leitura do arquivo ' + filename, 'Validando cabeçalhos de remessa...']);
-
-    // Staged updates
-    setTimeout(() => {
-      setUploadProgress(40);
-      setParsedLinesLogs(prev => [...prev, 'Encontrado HEADER do banco emissor', 'Analisando lote 1: 14 transações detectadas']);
-    }, 600);
-
-    setTimeout(() => {
-      setUploadProgress(75);
-      setParsedLinesLogs(prev => [...prev, 'Processando transações lineares...', 'Mapeando registros de pagamento - Detalhe Segmento A']);
-    }, 1200);
-
-    setTimeout(() => {
+    setUploadProgress(20);
+    setParsedLinesLogs(['Lendo arquivo ' + file.name + '...']);
+    try {
+      const text = await file.text();
+      const parsed = parseOfx(text);
+      setUploadProgress(70);
+      if (parsed.length === 0) {
+        setParsedLinesLogs(prev => [...prev, 'Nenhuma transação encontrada. Confirme que é um extrato OFX válido.']);
+        setIsUploading(false); setUploadProgress(null);
+        return;
+      }
+      // Auto-match heuristic: a same-value lançamento already on the book -> likely match.
+      const existing = new Set(transactions.map(t => Math.abs(Number(t.value) || 0).toFixed(2)));
+      let imported = 0;
+      let matched = 0;
+      for (const p of parsed) {
+        const likely = existing.has(Math.abs(p.amount).toFixed(2));
+        if (likely) matched++;
+        onAddTransaction({
+          id: `ofx-${p.fitid || `${Date.now()}-${imported}`}`,
+          description: p.memo,
+          bank: selectedBank !== 'all' ? selectedBank : 'Importado (OFX)',
+          bankCode: '',
+          direction: p.amount >= 0 ? 'inflow' : 'outflow',
+          status: 'pending',
+          value: p.amount,
+          date: p.date || new Date().toISOString().slice(0, 10),
+          reference: 'OFX ' + (p.type || ''),
+          category: '',
+          score: likely ? 0.9 : 0.6,
+          externalId: p.fitid || undefined,
+        } as Transaction);
+        imported++;
+      }
       setUploadProgress(100);
-      setParsedLinesLogs(prev => [...prev, 'Conciliação automática gerada. 4 novos pares correlacionados!', 'Retorno processado com sucesso.']);
-      
-      // Inject some new items
-      const newTx: Transaction = {
-        id: 'new-parsed-1',
-        description: 'VANCE GESTÃO PROCESSAMENTO RETORNO',
-        bank: 'Itaú Unibanco S.A.',
-        bankCode: '341',
-        direction: 'inflow',
-        status: 'pending',
-        value: 12500.00,
-        date: '2026-06-21',
-        reference: 'NF-E RETORNO AUTOMATICO',
-        category: 'Contratos Clientes',
-        score: 0.94,
-        externalId: 'EXT-9988'
-      };
-      onAddTransaction(newTx);
-
-      const newTx2: Transaction = {
-        id: 'new-parsed-2',
-        description: 'PAGAMENTO FORNECEDOR SILVA SERVIÇOS',
-        bank: 'Banco do Brasil S.A.',
-        bankCode: '001',
-        direction: 'outflow',
-        status: 'pending',
-        value: -3100.00,
-        date: '2026-06-20',
-        reference: 'DUPLICATA FORN-4512',
-        category: 'Fornecedores',
-        score: 0.76,
-        externalId: 'EXT-9989'
-      };
-      onAddTransaction(newTx2);
-
-    }, 2000);
+      setParsedLinesLogs(prev => [
+        ...prev,
+        `Extrato lido: ${imported} transação(ões) importada(s).`,
+        `${matched} com sugestão de conciliação (mesmo valor já no livro).`,
+        'Revise e concilie os lançamentos pendentes abaixo.',
+      ]);
+    } catch (err: any) {
+      setParsedLinesLogs(prev => [...prev, 'Falha ao ler o arquivo: ' + (err?.message || err)]);
+      setUploadProgress(null);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Action dispatcher
@@ -202,11 +216,11 @@ export default function Reconciliation({
         <div className="w-full md:w-auto">
           {canUploadCnab ? (
             <label className="text-xs bg-brand text-white px-4 py-2 hover:bg-[var(--color-brand-light)] font-semibold rounded-lg flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md">
-              <Upload size={14} /> Importar Retorno (.CNAB / .OFX)
+              <Upload size={14} /> Importar extrato (.OFX)
               <input
                 type="file"
                 onChange={handleFileSelect}
-                accept=".ofx,.cnab,.ret,.txt"
+                accept=".ofx,.qfx,.txt"
                 className="hidden"
               />
             </label>
@@ -270,7 +284,7 @@ export default function Reconciliation({
         <div className="p-4 rounded-xl border border-teal-500/30 bg-teal-500/5 space-y-3">
           <div className="flex justify-between items-center text-xs">
             <span className="font-bold flex items-center gap-1.5 text-teal-400">
-              <RefreshCw size={13} className="animate-spin" /> Processando Extrato CNAB...
+              <RefreshCw size={13} className="animate-spin" /> Processando extrato OFX...
             </span>
             <span className="font-mono font-semibold">{uploadProgress}%</span>
           </div>
