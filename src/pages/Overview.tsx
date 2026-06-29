@@ -53,7 +53,23 @@ export default function Overview({
 
   return (
     <div className="space-y-6">
-      
+
+      {/* Onboarding (empty state) — drive to the killer workflow */}
+      {transactions.length === 0 && (
+        <div className="bg-gradient-to-br from-teal-500/10 to-[var(--bg-card)] border border-teal-500/20 rounded-xl p-5">
+          <h2 className="text-base font-bold text-[var(--text-primary)]">Comece em 1 minuto: importe seu primeiro boleto ou nota fiscal</h2>
+          <p className="text-xs text-[var(--text-secondary)] mt-1 max-w-xl">
+            A IA do Vance lê o documento, cria o lançamento e prepara a conciliação — sem digitar. Depois é só conciliar o extrato e ver seu fluxo de caixa.
+          </p>
+          <button
+            onClick={() => onNavigate('registers')}
+            className="mt-3 inline-flex items-center gap-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] font-semibold text-xs px-4 py-2 rounded-lg hover:opacity-90 transition-all"
+          >
+            Importar documento <ArrowRight size={13} />
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex justify-between items-center bg-[var(--bg-card)] p-4 rounded-xl border border-[var(--border-soft)]">
         <div>

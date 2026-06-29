@@ -12,7 +12,7 @@ const STATUS_STYLE: Record<string, string> = {
   open: 'bg-blue-500/10 text-blue-400', pending: 'bg-amber-500/10 text-amber-400', resolved: 'bg-emerald-500/10 text-emerald-400', closed: 'bg-neutral-500/10 text-[var(--text-secondary)]',
 };
 const brl = (cents: number) => `R$ ${((cents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-type Tab = 'overview' | 'tickets' | 'usage' | 'plans';
+type Tab = 'overview' | 'activation' | 'tickets' | 'usage' | 'plans';
 
 export default function Backoffice() {
   const [session, setSession] = useState<Session | null>(null);
@@ -22,6 +22,7 @@ export default function Backoffice() {
   const [data, setData] = useState<{ tenants: any[]; plans: any[]; finance: any } | null>(null);
   const [tickets, setTickets] = useState<db.Ticket[]>([]);
   const [usage, setUsage] = useState<Record<string, Record<string, number>>>({});
+  const [act, setAct] = useState<any | null>(null);
   const [impersonate, setImpersonate] = useState<any | null>(null);
 
   useEffect(() => {
@@ -32,8 +33,8 @@ export default function Backoffice() {
 
   const reload = async () => {
     try {
-      const [bo, tk, us] = await Promise.all([db.fetchBackoffice(), db.fetchTickets(), db.fetchUsageThisMonth()]);
-      setData(bo); setTickets(tk); setUsage(us);
+      const [bo, tk, us, ac] = await Promise.all([db.fetchBackoffice(), db.fetchTickets(), db.fetchUsageThisMonth(), db.fetchActivation()]);
+      setData(bo); setTickets(tk); setUsage(us); setAct(ac);
     } catch (e) { console.error(e); }
   };
 
@@ -83,7 +84,7 @@ export default function Backoffice() {
 
       <div className="max-w-6xl mx-auto px-6 pt-6">
         <div className="flex gap-2 text-xs flex-wrap">
-          {([['overview', 'Visão geral'], ['tickets', 'Chamados'], ['usage', 'Consumo'], ['plans', 'Planos']] as [Tab, string][]).map(([t, label]) => (
+          {([['overview', 'Visão geral'], ['activation', 'Ativação'], ['tickets', 'Chamados'], ['usage', 'Consumo'], ['plans', 'Planos']] as [Tab, string][]).map(([t, label]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-3 py-1.5 rounded-lg font-semibold ${tab === t ? 'bg-[var(--bg-card-hover)] text-white border border-[var(--border-mid)]' : 'text-[var(--text-secondary)] hover:text-white'}`}>
               {label}{t === 'tickets' && tickets.filter(x => x.status === 'open').length > 0 ? ` (${tickets.filter(x => x.status === 'open').length})` : ''}
@@ -147,6 +148,7 @@ export default function Backoffice() {
           </>
         )}
 
+        {tab === 'activation' && <ActivationPanel a={act} />}
         {tab === 'tickets' && <TicketsPanel tickets={tickets} onChanged={reload} />}
         {tab === 'usage' && <UsagePanel tenants={tenants} usage={usage} />}
         {tab === 'plans' && <PlansEditor plans={plans} onSaved={reload} />}
@@ -163,6 +165,41 @@ function Kpi({ icon, label, value, accent }: { icon: React.ReactNode; label: str
     <div className="p-4 rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)]">
       <div className="flex items-center gap-2 text-[var(--text-secondary)] text-[11px]">{icon} {label}</div>
       <p className={`text-xl font-extrabold mt-1 ${color}`}>{value}</p>
+    </div>
+  );
+}
+
+// ---- Ativação / Conversão (Fase 0) ----
+function ActivationPanel({ a }: { a: any }) {
+  if (!a) return <p className="text-xs text-[var(--text-secondary)]">Carregando…</p>;
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
+  const steps = [
+    { label: 'Clientes (signups)', value: a.customers, of: a.customers },
+    { label: 'Importaram (IA)', value: a.imported, of: a.customers },
+    { label: 'Conciliaram', value: a.reconciled, of: a.customers },
+    { label: 'Ativados (importou + conciliou)', value: a.activated, of: a.customers },
+    { label: 'Pagantes', value: a.paying, of: a.customers },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <Kpi icon={<Activity size={14} />} label="Ativação" value={`${pct(a.activated, a.customers)}%`} accent="emerald" />
+        <Kpi icon={<Activity size={14} />} label="Importou → Conciliou" value={`${pct(a.reconciled, a.imported || 1)}%`} />
+        <Kpi icon={<DollarSign size={14} />} label="Conversão paga" value={`${pct(a.paying, a.customers)}%`} accent="emerald" />
+        <Kpi icon={<Users size={14} />} label="Clientes" value={String(a.customers)} />
+      </div>
+      <div className="rounded-xl bg-[var(--bg-card)] border border-[var(--border-soft)] p-4">
+        <p className="text-sm font-semibold mb-3">Funil do workflow matador</p>
+        <div className="space-y-2">
+          {steps.map(s => (
+            <div key={s.label}>
+              <div className="flex justify-between text-xs mb-1"><span className="text-[var(--text-secondary)]">{s.label}</span><span className="font-semibold">{s.value} ({pct(s.value, s.of)}%)</span></div>
+              <div className="h-2 rounded bg-[var(--bg-input)] overflow-hidden"><div className="h-full bg-emerald-500/70" style={{ width: `${pct(s.value, s.of)}%` }} /></div>
+            </div>
+          ))}
+        </div>
+        <p className="text-[10px] text-[var(--text-muted)] mt-3">Meta Fase 0: ≥40% ativados, ≥30% topam o preço-alvo. Ativação = importou (IA) e conciliou ≥1 lançamento.</p>
+      </div>
     </div>
   );
 }

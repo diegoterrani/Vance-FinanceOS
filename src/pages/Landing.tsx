@@ -41,13 +41,13 @@ export default function Landing() {
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 text-center pt-20 pb-16">
         <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-[var(--text-secondary)] bg-[var(--bg-card-hover)] border border-[var(--border-soft)] px-3 py-1 rounded-full">
-          <Sparkles size={11} className="text-yellow-500" /> Plataforma financeira inteligente para PJ
+          <Sparkles size={11} className="text-yellow-500" /> Para empresas de serviços (PJ)
         </span>
         <h1 className="mt-6 text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.05]">
-          Tesouraria corporativa <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-secondary)] via-white to-[var(--text-muted)]">automatizada</span>.
+          Pare de digitar lançamento e <span className="text-transparent bg-clip-text bg-gradient-to-r from-[var(--text-secondary)] via-white to-[var(--text-muted)]">conciliar na unha</span>.
         </h1>
         <p className="mt-5 text-sm sm:text-base text-[var(--text-secondary)] max-w-2xl mx-auto leading-relaxed">
-          Gestão de caixa, conciliação e emissão de notas para múltiplas empresas — com integrações bancárias e de ERP via API REST e importação de documentos por IA.
+          A IA do Vance lê seus boletos e notas fiscais, cria os lançamentos, concilia o extrato e mostra seu fluxo de caixa — automático. Menos planilha, mais controle.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <a href={`${APP_URL}/signup`} className="inline-flex items-center gap-1.5 bg-[var(--text-primary)] text-[var(--bg-app)] font-semibold text-sm px-5 py-3 rounded-lg hover:bg-white transition-all">

@@ -547,6 +547,29 @@ export async function fetchUsageThisMonth(): Promise<Record<string, Record<strin
   return map;
 }
 
+// Fase 0 activation/conversion funnel (super-admin / backoffice).
+export async function fetchActivation() {
+  const [tenants, profs, usage] = await Promise.all([
+    supabase.from("tenants").select("id,status,owner_id,created_at"),
+    supabase.from("profiles").select("id,is_super_admin"),
+    supabase.from("usage_events").select("tenant_id,kind"),
+  ]);
+  const superIds = new Set((profs.data ?? []).filter((p: any) => p.is_super_admin).map((p: any) => p.id));
+  const byTenant: Record<string, Set<string>> = {};
+  for (const u of (usage.data ?? []) as any[]) {
+    (byTenant[u.tenant_id] ||= new Set()).add(u.kind);
+  }
+  const customers = (tenants.data ?? []).filter((t: any) => !superIds.has(t.owner_id));
+  const has = (id: string, k: string) => byTenant[id]?.has(k);
+  return {
+    customers: customers.length,
+    imported: customers.filter((t: any) => has(t.id, "ai_import")).length,
+    reconciled: customers.filter((t: any) => has(t.id, "reconciled")).length,
+    activated: customers.filter((t: any) => has(t.id, "ai_import") && has(t.id, "reconciled")).length,
+    paying: customers.filter((t: any) => t.status === "active").length,
+  };
+}
+
 // ---------- F4: impersonation (read-only) ----------
 export async function logImpersonation(tenantId: string, reason?: string) {
   const uid = (await supabase.auth.getUser()).data.user?.id ?? null;

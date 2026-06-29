@@ -235,6 +235,7 @@ export default function App() {
     try {
       await db.updateTransactionStatus(id, newStatus);
       setTransactions(prev => prev.map(t => (t.id === id ? { ...t, status: newStatus } : t)));
+      if (newStatus === 'matched') db.recordUsage('reconciled'); // activation metering
       await writeAudit('ATUALIZAR_STATUS', `Lancamento "${tx?.description}" remarcado para o status ${newStatus}`);
     } catch (e) {
       console.error('Falha ao atualizar status', e);
