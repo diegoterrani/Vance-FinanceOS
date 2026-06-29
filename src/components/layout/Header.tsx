@@ -140,9 +140,9 @@ export default function Header({
             className="bg-transparent border-none text-[11px] font-bold text-teal-400 focus:outline-none pr-1 cursor-pointer hover:text-teal-300 transition-colors uppercase font-sans select-none"
             id="global-cnpj-selector"
           >
-            <option value="consolidado" className="bg-[#111] text-[var(--text-primary)]">🌐 TODOS OS CNPJs (Consolidado)</option>
+            <option value="consolidado" className="bg-[var(--bg-card)] text-[var(--text-primary)]">🌐 TODOS OS CNPJs (Consolidado)</option>
             {companies?.map(company => (
-              <option key={company.cnpj} value={company.cnpj} className="bg-[#111] text-[var(--text-primary)]">
+              <option key={company.cnpj} value={company.cnpj} className="bg-[var(--bg-card)] text-[var(--text-primary)]">
                 🏢 {company.nomeFantasia} ({company.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5")})
               </option>
             ))}

@@ -264,10 +264,8 @@ export default function App() {
 
   // Adding a teammate requires Supabase Auth admin (invite) — not available
   // client-side. Kept local-only so the Settings UI stays functional.
-  const handleAddUser = (user: User) => {
-    console.warn('Convite de usuário não persistido: use o cadastro (signup) ou o painel admin do Supabase.');
-    setUsers(prev => [...prev, user]);
-  };
+  // Invitations are persisted via onInvite (team_invites); no local fake row.
+  const handleAddUser = (_user: User) => {};
 
   const handleUpdateUserRole = async (id: string, role: any) => {
     try {
@@ -632,6 +630,7 @@ export default function App() {
       <a
         href="/suporte"
         title="Abrir suporte"
+        aria-label="Abrir suporte"
         className="fixed bottom-5 right-5 z-40 flex items-center gap-1.5 px-4 py-2.5 rounded-full bg-[var(--bg-card)] border border-[var(--border-soft)] text-[var(--text-primary)] text-xs font-semibold shadow-lg hover:bg-[var(--bg-card-hover)] transition-all"
       >
         Suporte

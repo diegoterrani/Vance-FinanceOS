@@ -567,24 +567,3 @@ export async function fetchTenantSnapshot(tenantId: string) {
     users: (users.data ?? []).map(toUser),
   };
 }
-
-// Backoffice (super-admin): all tenants enriched with plan + owner + user count.
-export async function fetchAllTenants() {
-  const [tenants, plans, profs] = await Promise.all([
-    supabase.from("tenants").select("*").order("created_at"),
-    supabase.from("plans").select("id,code,name,price_cents"),
-    supabase.from("profiles").select("id,email,name,tenant_id,role"),
-  ]);
-  const planById = new Map((plans.data ?? []).map((p: any) => [p.id, p]));
-  const profList = profs.data ?? [];
-  return (tenants.data ?? []).map((t: any) => ({
-    id: t.id,
-    name: t.name,
-    status: t.status,
-    trialEndsAt: t.trial_ends_at,
-    createdAt: t.created_at,
-    plan: planById.get(t.plan_id) || null,
-    owner: profList.find((p: any) => p.id === t.owner_id) || null,
-    userCount: profList.filter((p: any) => p.tenant_id === t.id).length,
-  }));
-}

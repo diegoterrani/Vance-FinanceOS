@@ -11,6 +11,24 @@ export default async function handler(req: any, res: any) {
   if (!email || !password) return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
   if (String(password).length < 6) return res.status(400).json({ error: "A senha deve ter no mínimo 6 caracteres." });
 
+  // Anti-abuse: Cloudflare Turnstile (gated on TURNSTILE_SECRET; no-op if unset).
+  const TURNSTILE = process.env.TURNSTILE_SECRET;
+  if (TURNSTILE) {
+    const token = req.body?.turnstileToken;
+    if (!token) return res.status(400).json({ error: "Verificação anti-robô ausente." });
+    try {
+      const v = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ secret: TURNSTILE, response: token }),
+      });
+      const vj = await v.json().catch(() => ({}));
+      if (!vj.success) return res.status(403).json({ error: "Falha na verificação anti-robô." });
+    } catch {
+      return res.status(502).json({ error: "Erro na verificação anti-robô." });
+    }
+  }
+
   const SR = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const URL = process.env.SUPABASE_URL || "https://gltffiwkzdvsxruexklw.supabase.co";
   if (!SR) return res.status(200).json({ autoConfirmed: false, reason: "service-role-not-configured" });

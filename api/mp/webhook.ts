@@ -50,18 +50,33 @@ export default async function handler(req: any, res: any) {
     } else if (type.includes("payment")) {
       const r = await fetch(`https://api.mercadopago.com/v1/payments/${dataId}`, { headers: { Authorization: `Bearer ${MP}` } });
       const pay = await r.json().catch(() => ({}));
-      const tenantId = pay.external_reference;
+      let tenantId = pay.external_reference;
+      // Fallback: recurring payments may omit external_reference -> map via subscription.
+      if (!tenantId) {
+        const preId = pay.metadata?.preapproval_id || pay.preapproval_id;
+        if (preId) {
+          const { data: sub } = await supabaseAdmin.from("subscriptions").select("tenant_id").eq("mp_preapproval_id", preId).maybeSingle();
+          tenantId = sub?.tenant_id;
+        }
+      }
       if (tenantId) {
         const cents = Math.round((pay.transaction_amount || 0) * 100);
-        await supabaseAdmin.from("payments").insert({ tenant_id: tenantId, amount_cents: cents, status: pay.status, mp_payment_id: String(pay.id), method: pay.payment_method_id });
+        // idempotent on mp_payment_id (MP re-sends notifications)
+        await supabaseAdmin.from("payments").upsert(
+          { tenant_id: tenantId, amount_cents: cents, status: pay.status, mp_payment_id: String(pay.id), method: pay.payment_method_id },
+          { onConflict: "mp_payment_id" },
+        );
         if (pay.status === "approved") {
-          // settle an existing open invoice; if none, record a paid one
+          // settle an existing open invoice; if none, record a paid one (idempotent)
           const { data: settled } = await supabaseAdmin
             .from("invoices")
             .update({ status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) })
             .eq("tenant_id", tenantId).eq("status", "open").select("id");
           if (!settled || settled.length === 0) {
-            await supabaseAdmin.from("invoices").insert({ tenant_id: tenantId, amount_cents: cents, status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) });
+            await supabaseAdmin.from("invoices").upsert(
+              { tenant_id: tenantId, amount_cents: cents, status: "paid", paid_at: new Date().toISOString(), mp_payment_id: String(pay.id) },
+              { onConflict: "mp_payment_id" },
+            );
           }
           await supabaseAdmin.from("tenants").update({ status: "active", past_due_since: null }).eq("id", tenantId);
         }

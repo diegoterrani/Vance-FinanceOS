@@ -38,7 +38,7 @@ values
   ('98765432000100', 'Vance Distribuidora de Ativos Importados S.A.', 'VANCE DISTRIBUIDORA', 'Lucro Real', 25000.00, 'America/Sao_Paulo', false, null)
 on conflict (cnpj) do nothing;
 
--- Confirmed demo admin login. Password: VanceDemo#2026  (change after first login).
+-- Confirmed demo admin login. Password set OUT OF BAND (do not commit secrets).
 -- NOTE: GoTrue scans the *_token columns into Go strings and cannot handle
 -- NULL, so they MUST be '' (empty string), not NULL.
 insert into auth.users (
@@ -51,7 +51,7 @@ select
   gen_random_uuid(),
   'authenticated', 'authenticated',
   'diego.terrani@gmail.com',
-  extensions.crypt('VanceDemo#2026', extensions.gen_salt('bf')),
+  extensions.crypt('<TEMP_PASSWORD_SET_OUT_OF_BAND>', extensions.gen_salt('bf')),
   now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
   '{"name":"Diego Terrani","role":"admin"}'::jsonb,
